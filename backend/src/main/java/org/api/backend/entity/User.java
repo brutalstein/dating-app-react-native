@@ -42,7 +42,9 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    private String universityName;
+    @ManyToOne
+    @JoinColumn(name = "university_id")
+    private University university;
 
     private String department;
 

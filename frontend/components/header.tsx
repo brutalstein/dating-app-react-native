@@ -1,10 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 const BLOOM_COLOR = '#FF5A5F';
 
 export const Header = () => {
+  const router = useRouter();
+
   return (
     <View style={styles.headerContainer}>
       <View style={styles.logoContainer}>
@@ -22,7 +25,9 @@ export const Header = () => {
           <View style={styles.badge} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.iconButton}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          >
           <Ionicons name="chatbubble-ellipses-outline" size={24} color="white" />
         </TouchableOpacity>
 
@@ -34,6 +39,8 @@ export const Header = () => {
     </View>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   headerContainer: {
