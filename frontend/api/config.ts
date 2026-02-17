@@ -86,7 +86,7 @@ api.interceptors.response.use(
     }
 
     const isExpectedExploreHubThrottle = status === 429 && isExploreHubRequest;
-    const isExpectedExploreHubAuthTransition = (status === 401 || status === 403) && isExploreHubRequest && !authSnapshot.authenticated;
+    const isExpectedExploreHubAuthTransition = (status === 401 || status === 403) && isExploreHubRequest;
     const shouldSuppress429Noise = status === 429;
     const bucketKey = `${method}:${url}:${status}`;
     const now = Date.now();

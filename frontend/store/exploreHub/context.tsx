@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { ExploreHubAuthError, ExploreHubRateLimitError, exploreHubService } from '@/services/exploreHubService';
 import { connectRealtime, disconnectRealtime } from '@/services/realtimeService';
+import { useAuthSession } from '@/hooks/useAuthSession';
 import { exploreHubInitialState, exploreHubReducer } from './reducer';
 import { exploreHubSelectors } from './selectors';
 import { ExploreHubState } from './types';
@@ -21,6 +22,7 @@ const ExploreHubContext = createContext<ExploreHubContextValue | null>(null);
 
 export function ExploreHubProvider({ children }: { children: React.ReactNode }) {
   const cached = exploreHubService.getCachedPayload();
+  const { ready, authenticated } = useAuthSession();
   const [state, dispatch] = useReducer(
     exploreHubReducer,
     cached
@@ -43,6 +45,10 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
   }, [state]);
 
   const load = useCallback(async (forceRefresh = false) => {
+    if (!ready || !authenticated) {
+      return;
+    }
+
     const currentState = stateRef.current;
 
     if (!forceRefresh && (currentState.status === 'loading' || currentState.isRefreshing)) {
@@ -77,7 +83,7 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
 
       dispatch({ type: 'LOAD_ERROR', payload: { error: err instanceof Error ? err.message : 'Bir hata oluştu' } });
     }
-  }, []);
+  }, [ready, authenticated]);
 
   const refresh = useCallback(async () => {
     await load(true);
@@ -115,6 +121,11 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
   );
 
   useEffect(() => {
+    if (!ready || !authenticated) {
+      disconnectRealtime();
+      return;
+    }
+
     connectRealtime({
       onEvent: (eventType, payload) => {
         if (eventType === 'EXPLORE_HUB_UPDATED' || eventType === 'LIKE_RECEIVED' || eventType === 'MATCH_CREATED') {
@@ -128,8 +139,9 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
         }
       },
     });
+
     return () => disconnectRealtime();
-  }, [load]);
+  }, [ready, authenticated, load]);
 
   const value = useMemo(
     () => ({ state, load, refresh, invalidate, markNotificationAsRead, markThreadAsRead }),
