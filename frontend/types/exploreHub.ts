@@ -10,12 +10,17 @@ export interface ExploreUser {
 export interface MessageThread {
   id: string;
   user: ExploreUser;
+  title?: string;
+  participantNames?: string[];
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
   isOnline?: boolean;
   lastSeenAt?: string;
   isPinned?: boolean;
+  teaserConversation?: boolean;
+  teaserProfileLocked?: boolean;
+  teaserCtaText?: string;
 }
 
 export interface NotificationItem {
@@ -29,6 +34,13 @@ export interface NotificationItem {
   actionLabel?: string;
 }
 
+export interface ExplainabilityItem {
+  key: string;
+  label: string;
+  score: number;
+  detail: string;
+}
+
 export interface ActivityItem {
   id: string;
   actor: ExploreUser;
@@ -38,6 +50,7 @@ export interface ActivityItem {
   score?: number;
   reason?: string;
   referenceId?: string;
+  explainability?: ExplainabilityItem[];
 }
 
 export interface ExploreHubPayload {

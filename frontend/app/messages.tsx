@@ -9,6 +9,33 @@ import { MessageThread } from '@/types/exploreHub';
 
 type MessageFilter = 'all' | 'unread';
 
+const FALLBACK_CONVERSATION_NAME = 'İsimsiz sohbet';
+
+const normalizeLabel = (value?: string | null) => (typeof value === 'string' ? value.trim() : '');
+
+const isTechnicalConversationLabel = (value: string) => {
+  const normalized = value.toLowerCase();
+  return (
+    normalized === 'user conversation' ||
+    normalized === 'conversation' ||
+    normalized === 'chat' ||
+    normalized.startsWith('user conversation ') ||
+    normalized.startsWith('conversation ') ||
+    normalized.startsWith('chat ')
+  );
+};
+
+const resolveConversationName = (thread: MessageThread) => {
+  const candidates = [
+    normalizeLabel(thread.title),
+    ...(thread.participantNames ?? []).map((name) => normalizeLabel(name)),
+    normalizeLabel(thread.user.fullName),
+  ].filter(Boolean) as string[];
+
+  const userFriendly = candidates.find((name) => !isTechnicalConversationLabel(name));
+  return userFriendly || FALLBACK_CONVERSATION_NAME;
+};
+
 export default function MessagesScreen() {
   const router = useRouter();
   const { status, error, messages, load, refresh, isRefreshing, markThreadAsRead } = useExploreHub();
@@ -22,7 +49,7 @@ export default function MessagesScreen() {
       .filter((item) => {
         if (!normalized) return true;
         return (
-          item.user.fullName.toLowerCase().includes(normalized) ||
+          resolveConversationName(item).toLowerCase().includes(normalized) ||
           item.lastMessage.toLowerCase().includes(normalized)
         );
       })
@@ -34,48 +61,57 @@ export default function MessagesScreen() {
   }, [messages, query, filter]);
 
   const renderItem = useCallback(
-    ({ item }: { item: MessageThread }) => (
-      <TouchableOpacity style={hubStyles.card} onPress={() => { markThreadAsRead(item.id); router.push(`/chat/${item.id}` as any); }} activeOpacity={0.9}>
-        <View>
-          <Avatar name={item.user.fullName} uri={item.user.avatarUrl} />
-          {item.isOnline && (
-            <View
-              style={{
-                position: 'absolute',
-                right: 2,
-                bottom: 2,
-                width: 11,
-                height: 11,
-                borderRadius: 6,
-                backgroundColor: '#22c55e',
-                borderWidth: 2,
-                borderColor: '#111',
-              }}
-            />
-          )}
-        </View>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={hubStyles.title}>{item.user.fullName}</Text>
-            {item.isPinned && <Ionicons name="bookmark" size={13} color="#FF5A5F" />}
+    ({ item }: { item: MessageThread }) => {
+      const displayName = resolveConversationName(item);
+
+      return (
+        <TouchableOpacity style={hubStyles.card} onPress={() => { markThreadAsRead(item.id); router.push(`/chat/${item.id}` as any); }} activeOpacity={0.9}>
+          <View>
+            <Avatar name={displayName} uri={item.user.avatarUrl} />
+            {item.isOnline && (
+              <View
+                style={{
+                  position: 'absolute',
+                  right: 2,
+                  bottom: 2,
+                  width: 11,
+                  height: 11,
+                  borderRadius: 6,
+                  backgroundColor: '#22c55e',
+                  borderWidth: 2,
+                  borderColor: '#111',
+                }}
+              />
+            )}
           </View>
-          <Text style={[hubStyles.subtitle, { fontSize: 11 }]}>{item.isOnline ? 'online' : item.lastSeenAt ? `son görülme ${formatRelativeTime(item.lastSeenAt)}` : 'offline'}</Text>
-          <Text
-            style={[hubStyles.subtitle, { color: item.unreadCount > 0 ? '#d1d5db' : '#9ca3af' }]}
-            numberOfLines={1}>
-            {item.lastMessage}
-          </Text>
-        </View>
-        <View style={hubStyles.trailing}>
-          <Text style={hubStyles.subtitle}>{formatRelativeTime(item.lastMessageAt)}</Text>
-          {item.unreadCount > 0 && (
-            <View style={[hubStyles.chip, { marginTop: 6 }]}>
-              <Text style={hubStyles.chipText}>{item.unreadCount}</Text>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={hubStyles.title}>{displayName}</Text>
+              {item.isPinned && <Ionicons name="bookmark" size={13} color="#FF5A5F" />}
             </View>
-          )}
-        </View>
-      </TouchableOpacity>
-    ),
+            <Text style={[hubStyles.subtitle, { fontSize: 11 }]}>{item.isOnline ? 'online' : item.lastSeenAt ? `son görülme ${formatRelativeTime(item.lastSeenAt)}` : 'offline'}</Text>
+            <Text
+              style={[hubStyles.subtitle, { color: item.unreadCount > 0 ? '#d1d5db' : '#9ca3af' }]}
+              numberOfLines={1}>
+              {item.lastMessage}
+            </Text>
+            {item.teaserProfileLocked && (
+              <TouchableOpacity onPress={() => router.push(`/profile/${item.user.id}?locked=1&cta=${encodeURIComponent(item.teaserCtaText || 'Profili görmek için premium al')}` as any)} style={{ marginTop: 8, alignSelf: 'flex-start', backgroundColor: 'rgba(255,90,95,0.18)', borderWidth: 1, borderColor: 'rgba(255,90,95,0.4)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{item.teaserCtaText || 'Profili görmek için premium al'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={hubStyles.trailing}>
+            <Text style={hubStyles.subtitle}>{formatRelativeTime(item.lastMessageAt)}</Text>
+            {item.unreadCount > 0 && (
+              <View style={[hubStyles.chip, { marginTop: 6 }]}> 
+                <Text style={hubStyles.chipText}>{item.unreadCount}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    },
     [markThreadAsRead, router]
   );
 

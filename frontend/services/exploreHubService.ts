@@ -46,6 +46,14 @@ function mapPayload(data: any): ExploreHubPayload {
         fullName: m.otherUserName,
         avatarUrl: m.otherUserAvatar,
       },
+      title: m.conversationTitle ?? m.title ?? undefined,
+      participantNames: Array.isArray(m.participantNames)
+        ? m.participantNames
+        : Array.isArray(m.participants)
+        ? m.participants
+            .map((participant: any) => participant?.name ?? participant?.fullName)
+            .filter(Boolean)
+        : undefined,
       lastMessage: m.lastMessage,
       lastMessageAt: m.lastMessageAt,
       unreadCount: m.unreadCount,
