@@ -9,6 +9,14 @@ import { ActivityItem } from '@/types/exploreHub';
 
 type ActivityFilter = 'all' | 'highIntent';
 
+const activityIconMap: Record<ActivityItem['type'], keyof typeof Ionicons.glyphMap> = {
+  profile_view: 'eye-outline',
+  super_like: 'star-outline',
+  new_match: 'heart-outline',
+  reaction: 'happy-outline',
+  boost: 'flash-outline',
+};
+
 export default function ActivityScreen() {
   const router = useRouter();
   const { status, error, activities, load } = useExploreHub();
@@ -24,11 +32,19 @@ export default function ActivityScreen() {
       <View style={hubStyles.card}>
         <Avatar name={item.actor.fullName} uri={item.actor.avatarUrl} size={48} />
         <View style={{ flex: 1 }}>
-          <Text style={hubStyles.title}>{item.actor.fullName}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={hubStyles.title}>{item.actor.fullName}</Text>
+            <Ionicons name={activityIconMap[item.type]} size={14} color="#FF5A5F" />
+          </View>
           <Text style={hubStyles.subtitle}>{item.summary}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <TouchableOpacity style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(255,90,95,0.2)' }}>
+              <Text style={{ color: '#fda4af', fontWeight: '700', fontSize: 11 }}>Yanıt Ver</Text>
+            </TouchableOpacity>
+            <Text style={hubStyles.subtitle}>{formatRelativeTime(item.createdAt)}</Text>
+          </View>
         </View>
         <View style={hubStyles.trailing}>
-          <Text style={hubStyles.subtitle}>{formatRelativeTime(item.createdAt)}</Text>
           {typeof item.score === 'number' && (
             <View style={[hubStyles.chip, { marginTop: 6 }]}>
               <Text style={hubStyles.chipText}>Skor {item.score}</Text>
@@ -86,7 +102,7 @@ export default function ActivityScreen() {
           maxToRenderPerBatch={10}
           windowSize={8}
           removeClippedSubviews
-          refreshControl={<RefreshControl tintColor="#FF5A5F" refreshing={status === 'loading'} onRefresh={load} />}
+          refreshControl={<RefreshControl tintColor="#FF5A5F" refreshing={status === 'loading'} onRefresh={() => load(true)} />}
         />
       )}
     </View>
