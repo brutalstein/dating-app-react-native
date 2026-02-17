@@ -6,10 +6,14 @@ export function useExploreHub() {
   const { state, load, refresh, invalidate, markNotificationAsRead, markThreadAsRead } = useExploreHubStore();
 
   useEffect(() => {
-    if (state.status === 'idle' || exploreHubSelectors.isStale(state)) {
-      load();
+    const shouldAutoLoad =
+      state.status === 'idle' ||
+      ((state.status === 'success' || state.status === 'empty') && exploreHubSelectors.isStale(state));
+
+    if (shouldAutoLoad) {
+      void load(false);
     }
-  }, [state, load]);
+  }, [state.status, state.staleAt, load]);
 
   const counts = useMemo(
     () => ({

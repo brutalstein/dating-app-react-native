@@ -51,6 +51,12 @@ export function exploreHubReducer(state: ExploreHubState, action: ExploreHubActi
         isRefreshing: false,
       };
 
+    case 'SET_STALE_AT':
+      return {
+        ...state,
+        staleAt: action.payload.staleAt,
+      };
+
     case 'MARK_THREAD_READ_OPTIMISTIC':
       return {
         ...state,

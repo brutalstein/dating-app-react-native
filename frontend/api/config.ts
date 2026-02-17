@@ -4,6 +4,8 @@ import Constants from 'expo-constants';
 import { captureException } from '@/services/monitoring';
 
 const INVALID_TOKEN_VALUES = new Set(['null', 'undefined', '']);
+const MONITOR_THROTTLE_MS = 60 * 1000;
+const monitorBuckets = new Map<string, number>();
 
 export const sanitizeToken = (rawToken?: string | null) => {
   if (!rawToken) {
@@ -64,12 +66,26 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    captureException(error, {
-      scope: 'http_response_interceptor',
-      method: error?.config?.method,
-      url: error?.config?.url,
-      status: error?.response?.status,
-    });
+    const method = String(error?.config?.method || 'get').toUpperCase();
+    const url = String(error?.config?.url || 'unknown');
+    const status = Number(error?.response?.status || 0);
+
+    const shouldSuppress429Noise = status === 429;
+    const bucketKey = `${method}:${url}:${status}`;
+    const now = Date.now();
+    const lastSentAt = monitorBuckets.get(bucketKey) || 0;
+    const shouldCapture = !shouldSuppress429Noise || now - lastSentAt > MONITOR_THROTTLE_MS;
+
+    if (shouldCapture) {
+      monitorBuckets.set(bucketKey, now);
+      captureException(error, {
+        scope: 'http_response_interceptor',
+        method,
+        url,
+        status,
+      });
+    }
+
     return Promise.reject(error);
   }
 );

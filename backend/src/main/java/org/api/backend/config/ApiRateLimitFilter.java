@@ -31,8 +31,8 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        String key = resolveClientIp(request) + ":" + resolveUserKey();
         String scope = resolveScope(request);
+        String key = resolveRateLimitKey(request);
 
         try {
             abuseProtectionService.enforceHttpRateLimit(scope, key);
@@ -54,6 +54,10 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
             return "AUTH";
         }
 
+        if (path.startsWith("/api/explore-hub") && "GET".equalsIgnoreCase(method)) {
+            return "EXPLORE_HUB";
+        }
+
         if ((path.startsWith("/api/likes/") && "POST".equalsIgnoreCase(method))
                 || (path.startsWith("/api/conversations/") && path.endsWith("/read") && "POST".equalsIgnoreCase(method))
                 || (path.startsWith("/api/recommendations/") && "POST".equalsIgnoreCase(method))) {
@@ -61,6 +65,14 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
         }
 
         return "DEFAULT";
+    }
+
+    private String resolveRateLimitKey(HttpServletRequest request) {
+        String userKey = resolveUserKey();
+        if (!"anon".equals(userKey)) {
+            return "user:" + userKey;
+        }
+        return "ip:" + resolveClientIp(request);
     }
 
     private String resolveClientIp(HttpServletRequest request) {

@@ -22,6 +22,7 @@ export type ExploreHubAction =
   | { type: 'LOAD_START'; payload: { refreshing: boolean } }
   | { type: 'LOAD_SUCCESS'; payload: { data: ExploreHubPayload; fetchedAt: number; staleAt: number } }
   | { type: 'LOAD_ERROR'; payload: { error: string } }
+  | { type: 'SET_STALE_AT'; payload: { staleAt: number } }
   | { type: 'MARK_THREAD_READ_OPTIMISTIC'; payload: { id: string } }
   | { type: 'MARK_THREAD_READ_ROLLBACK'; payload: { snapshot: MessageThread[] } }
   | { type: 'MARK_NOTIFICATION_READ_OPTIMISTIC'; payload: { id: string } }

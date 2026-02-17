@@ -1,11 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
-import { exploreHubService } from '@/services/exploreHubService';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
+import { ExploreHubRateLimitError, exploreHubService } from '@/services/exploreHubService';
 import { connectRealtime, disconnectRealtime } from '@/services/realtimeService';
 import { exploreHubInitialState, exploreHubReducer } from './reducer';
 import { exploreHubSelectors } from './selectors';
 import { ExploreHubState } from './types';
 
 const STALE_TIME_MS = 60 * 1000;
+const RECONNECT_REFRESH_MIN_INTERVAL_MS = 30 * 1000;
 
 type ExploreHubContextValue = {
   state: ExploreHubState;
@@ -36,23 +37,39 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
       : exploreHubInitialState
   );
 
-  const load = useCallback(
-    async (forceRefresh = false) => {
-      const shouldRefresh = forceRefresh || state.status === 'idle' || exploreHubSelectors.isStale(state);
-      if (!shouldRefresh) return;
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
-      dispatch({ type: 'LOAD_START', payload: { refreshing: state.status !== 'idle' } });
+  const load = useCallback(async (forceRefresh = false) => {
+    const currentState = stateRef.current;
 
-      try {
-        const payload = await exploreHubService.fetchExploreHub();
-        const now = Date.now();
-        dispatch({ type: 'LOAD_SUCCESS', payload: { data: payload, fetchedAt: now, staleAt: now + STALE_TIME_MS } });
-      } catch (err) {
-        dispatch({ type: 'LOAD_ERROR', payload: { error: err instanceof Error ? err.message : 'Bir hata oluştu' } });
+    if (!forceRefresh && (currentState.status === 'loading' || currentState.isRefreshing)) {
+      return;
+    }
+
+    const shouldRefresh =
+      forceRefresh || currentState.status === 'idle' || exploreHubSelectors.isStale(currentState);
+
+    if (!shouldRefresh) {
+      return;
+    }
+
+    dispatch({ type: 'LOAD_START', payload: { refreshing: currentState.status !== 'idle' } });
+
+    try {
+      const payload = await exploreHubService.fetchExploreHub();
+      const now = Date.now();
+      dispatch({ type: 'LOAD_SUCCESS', payload: { data: payload, fetchedAt: now, staleAt: now + STALE_TIME_MS } });
+    } catch (err) {
+      if (err instanceof ExploreHubRateLimitError) {
+        dispatch({ type: 'SET_STALE_AT', payload: { staleAt: Date.now() + err.retryAfterMs } });
       }
-    },
-    [state]
-  );
+
+      dispatch({ type: 'LOAD_ERROR', payload: { error: err instanceof Error ? err.message : 'Bir hata oluştu' } });
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     await load(true);
@@ -97,7 +114,10 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
         }
       },
       onConnected: () => {
-        void load(true);
+        const lastFetchedAt = stateRef.current.lastFetchedAt ?? 0;
+        if (Date.now() - lastFetchedAt >= RECONNECT_REFRESH_MIN_INTERVAL_MS) {
+          void load(false);
+        }
       },
     });
     return () => disconnectRealtime();

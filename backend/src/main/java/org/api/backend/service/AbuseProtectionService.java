@@ -29,6 +29,9 @@ public class AbuseProtectionService {
         } else if ("CRITICAL".equals(scope)) {
             limit = properties.getCriticalLimit();
             windowSeconds = properties.getCriticalWindowSeconds();
+        } else if ("EXPLORE_HUB".equals(scope)) {
+            limit = properties.getExploreHubLimit();
+            windowSeconds = properties.getExploreHubWindowSeconds();
         } else {
             limit = properties.getDefaultLimit();
             windowSeconds = properties.getDefaultWindowSeconds();
