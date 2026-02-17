@@ -1,16 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 
 const BLOOM_COLOR = '#FF5A5F';
 
 export const Header = () => {
-  const router = useRouter();
-
   return (
     <View style={styles.headerContainer}>
       <View style={styles.logoContainer}>
+        <Ionicons name="flame" size={20} color={BLOOM_COLOR} style={styles.logoIcon} />
         <Text style={styles.logoText}>bloom</Text>
         <View style={styles.onlineDot} />
       </View>
@@ -55,6 +53,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  logoIcon: {
+    marginRight: 6,
+    marginTop: 2,
   },
   logoText: {
     fontSize: 28,

@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
-import AuroraBackground from '@/components/ui/aurora-background';
-import BloomBrand from '@/components/ui/bloom-brand';
+import AuthInput from '@/components/ui/auth-input';
+
+const loginBackgroundGif = require('../../assets/images/pet-lover.gif');
 
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -44,51 +45,62 @@ export default function LoginScreen() {
 
   return (
     <View className="flex-1 bg-black">
-      <AuroraBackground />
+      <Image source={loginBackgroundGif} className="absolute w-full h-full opacity-80" resizeMode="cover" />
+      <LinearGradient
+        colors={['rgba(0,0,0,0.30)', 'rgba(0,0,0,0.58)', 'rgba(0,0,0,0.80)']}
+        locations={[0, 0.45, 1]}
+        className="absolute w-full h-full"
+      />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} className="px-6" keyboardShouldPersistTaps="handled">
-          <View className="mb-10">
-            <BloomBrand subtitle="Kampüste gerçek bağlantılar kur." />
+          <View className="items-center mb-10">
+            <View className="w-24 h-24 bg-zinc-900/90 rounded-3xl items-center justify-center mb-6 border border-zinc-600">
+              <Ionicons name="flame" size={48} color="#FF5A5F" />
+            </View>
+            <Text className="text-white text-4xl font-bold">Bloom&apos;a Giriş Yap</Text>
+            <Text className="text-zinc-300 mt-3 text-center text-base">Üniversite mailinle güvenli şekilde giriş yap.</Text>
           </View>
 
-          <View className="bg-black/45 border border-white/15 rounded-3xl p-5">
-            <TextInput
-              placeholder="Üniversite e-postası (.edu.tr)"
-              placeholderTextColor="#A1A1AA"
+          <View className="bg-zinc-950/85 border border-zinc-700 rounded-3xl p-5">
+            <AuthInput
+              label="Üniversite e-postası"
+              placeholder="ornek@uni.edu.tr"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
-              className="bg-zinc-900/80 text-white h-14 px-4 rounded-xl border border-zinc-700 mb-3"
+              textContentType="emailAddress"
+              autoComplete="email"
+              returnKeyType="next"
             />
 
-            <View className="bg-zinc-900/80 h-14 px-4 rounded-xl border border-zinc-700 mb-5 flex-row items-center">
-              <TextInput
-                placeholder="Şifre"
-                placeholderTextColor="#A1A1AA"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                className="flex-1 text-white"
-              />
-              <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
-                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#D4D4D8" />
-              </TouchableOpacity>
-            </View>
+            <AuthInput
+              label="Şifre"
+              placeholder="Şifren"
+              value={password}
+              onChangeText={setPassword}
+              secureToggle
+              textContentType="password"
+              autoComplete="password"
+              returnKeyType="done"
+            />
 
             <TouchableOpacity
               onPress={handleLogin}
               disabled={loading}
-              className={`h-14 rounded-xl items-center justify-center ${loading ? 'bg-zinc-700' : 'bg-[#A78BFA]'}`}
+              accessibilityRole="button"
+              className={`h-14 rounded-xl items-center justify-center flex-row gap-2 ${loading ? 'bg-zinc-700' : 'bg-[#FF5A5F]'}`}
             >
-              <Text className="text-white font-bold text-base">{loading ? 'Giriş yapılıyor...' : 'Bloom’a Giriş Yap'}</Text>
+              <Text className="text-white font-bold text-base">{loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}</Text>
+              {!loading && <Ionicons name="arrow-forward" size={18} color="white" />}
             </TouchableOpacity>
           </View>
 
-          <View className="flex-row justify-center mt-6">
+          <View className="flex-row justify-center mt-7">
             <Text className="text-zinc-300">Hesabın yok mu? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/register' as any)}>
-              <Text className="text-cyan-300 font-semibold">Kaydol</Text>
+              <Text className="text-[#FF5A5F] font-bold">Kaydol</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
