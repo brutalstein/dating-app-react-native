@@ -2,21 +2,32 @@ package org.api.backend.service;
 
 
 import lombok.RequiredArgsConstructor;
+import org.api.backend.dto.OnboardingRequest;
+import org.api.backend.dto.PhotoUpdateRequest;
+import org.api.backend.dto.UserProfileResponse;
+import org.api.backend.entity.Gender;
+import org.api.backend.entity.PendingRegistration;
 import org.api.backend.entity.University;
 import org.api.backend.entity.User;
 import org.api.backend.entity.VerificationCode;
 import org.api.backend.repos.UniversityRepository;
 import org.api.backend.repos.UserRepository;
 import org.api.backend.repos.CodeRepository;
+import org.api.backend.repos.PendingRegistrationRepository;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Random;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -26,48 +37,282 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final CodeRepository codeRepository;
+    private final PendingRegistrationRepository pendingRegistrationRepository;
     private final JavaMailSender mailSender;
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            throw new IllegalArgumentException("Email is required.");
+        }
+
+        String normalizedEmail = email.trim().toLowerCase();
+        if (normalizedEmail.isBlank() || !normalizedEmail.contains("@")) {
+            throw new IllegalArgumentException("Please provide a valid university email address.");
+        }
+
+        return normalizedEmail;
+    }
 
     @Transactional
     public String register(User user){
-        if (user.getEmail() == null || !user.getEmail().endsWith(".edu.tr")){
-            throw new IllegalArgumentException("Sadece Universite ogrencileri girebilir");
-        }
-        if(userRepository.existsByEmail(user.getEmail())){
-            throw new RuntimeException("Bu mail zaten kayitli");
+        if (user == null) {
+            throw new IllegalArgumentException("Registration payload is missing.");
         }
 
-        String domain = getDomain(user.getEmail());
-        University university = universityRepository.findByDomain(domain)
-                .orElseThrow(() -> new RuntimeException("Üniversiteniz sistemde tanımlı değil: " + domain));
-        user.setUniversity(university);
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setVerified(false);
+        String normalizedEmail = normalizeEmail(user.getEmail());
 
-        userRepository.save(user);
-        sendVerificationCode(user.getEmail());
-        return "Kayıt başarılı. Lütfen mail adresine gelen kodu doğrula.";
+        if (!normalizedEmail.endsWith(".edu.tr")){
+            throw new IllegalArgumentException("Only .edu.tr university email addresses are accepted.");
+        }
+
+        if (user.getFirstName() == null || user.getFirstName().trim().isBlank()) {
+            throw new IllegalArgumentException("First name is required.");
+        }
+
+        if (user.getPassword() == null || user.getPassword().trim().isBlank()) {
+            throw new IllegalArgumentException("Password is required.");
+        }
+
+        if(userRepository.existsByEmail(normalizedEmail)){
+            throw new RuntimeException("This email is already registered.");
+        }
+
+        if (pendingRegistrationRepository.existsByEmail(normalizedEmail)) {
+            pendingRegistrationRepository.deleteByEmail(normalizedEmail);
+        }
+
+        University university = resolveUniversityByEmail(normalizedEmail);
+
+        PendingRegistration pendingRegistration = PendingRegistration.builder()
+                .firstName(user.getFirstName().trim())
+                .lastName(user.getLastName() != null ? user.getLastName().trim() : null)
+                .email(normalizedEmail)
+                .password(passwordEncoder.encode(user.getPassword()))
+                .university(university)
+                .build();
+
+        pendingRegistrationRepository.save(pendingRegistration);
+        sendVerificationCode(normalizedEmail);
+        return "Registration request received. Please verify your email address to complete account creation.";
     }
 
     public String login(String email, String password){
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Kullanici bulunamadi"));
-        if(!passwordEncoder.matches(password, user.getPassword())){
-            throw new  RuntimeException("Hatali sifre");
+        String normalizedEmail = normalizeEmail(email);
+
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> {
+                    if (pendingRegistrationRepository.existsByEmail(normalizedEmail)) {
+                        return new RuntimeException("Your registration is pending email verification. Please verify your email first.");
+                    }
+                    return new RuntimeException("No account found for this email address.");
+                });
+
+        if (!Boolean.TRUE.equals(user.getVerified())) {
+            throw new RuntimeException("Your account is not verified yet. Please complete email verification.");
         }
+
+        if(!passwordEncoder.matches(password, user.getPassword())){
+            throw new  RuntimeException("Invalid email or password.");
+        }
+
         return jwtService.generateToken(user.getEmail(), new HashMap<>());
+    }
+
+    public UserProfileResponse getProfile(String authorizationHeader) {
+        User user = getAuthenticatedUser(authorizationHeader);
+        return toUserProfileResponse(user);
+    }
+
+    @Transactional
+    public UserProfileResponse completeOnboarding(String authorizationHeader, OnboardingRequest request) {
+        if (request == null) {
+            throw new RuntimeException("Onboarding payload is missing.");
+        }
+
+        User user = getAuthenticatedUser(authorizationHeader);
+
+        if (request.birthDate() == null || request.birthDate().trim().isBlank()) {
+            throw new RuntimeException("Birth date is required.");
+        }
+
+        LocalDate birthDate;
+        try {
+            birthDate = LocalDate.parse(request.birthDate().trim());
+        } catch (Exception e) {
+            throw new RuntimeException("Birth date format is invalid. Please use ISO format (yyyy-MM-dd).");
+        }
+
+        int age = Period.between(birthDate, LocalDate.now()).getYears();
+        if (age < 18) {
+            throw new RuntimeException("You must be at least 18 years old to use this app.");
+        }
+
+        if (request.gender() == null || request.gender().trim().isBlank()) {
+            throw new RuntimeException("Gender is required.");
+        }
+
+        if (request.preference() == null || request.preference().trim().isBlank()) {
+            throw new RuntimeException("Dating preference is required.");
+        }
+
+        List<String> interests = sanitizeInterests(request.interests());
+        if (interests.isEmpty()) {
+            throw new RuntimeException("Please select at least one interest.");
+        }
+
+        List<String> photoUrls = sanitizePhotos(request.photoUrls());
+
+        user.setBirthDate(birthDate);
+        user.setDepartment(request.department() != null && !request.department().trim().isBlank() ? request.department().trim() : null);
+        user.setBio(request.bio() != null && !request.bio().trim().isBlank() ? request.bio().trim() : null);
+        user.setGender(parseGender(request.gender()));
+        user.setPreference(parseGender(request.preference()));
+        user.setInterests(interests);
+        user.setPhotoUrls(photoUrls);
+        user.setOnboardingCompleted(true);
+
+        userRepository.save(user);
+        return toUserProfileResponse(user);
+    }
+
+    @Transactional
+    public UserProfileResponse updateProfilePhotos(String authorizationHeader, PhotoUpdateRequest request) {
+        if (request == null) {
+            throw new RuntimeException("Photo update payload is missing.");
+        }
+
+        User user = getAuthenticatedUser(authorizationHeader);
+        List<String> photoUrls = sanitizePhotos(request.photoUrls());
+
+        user.setPhotoUrls(photoUrls);
+        userRepository.save(user);
+        return toUserProfileResponse(user);
+    }
+
+    private User getAuthenticatedUser(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new RuntimeException("Authorization token is missing.");
+        }
+
+        String token = authorizationHeader.substring(7).trim();
+        if (token.isBlank() || !jwtService.isTokenValid(token)) {
+            throw new RuntimeException("Authorization token is invalid or expired.");
+        }
+
+        String normalizedEmail = normalizeEmail(jwtService.extractEmail(token));
+
+        return userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("Authenticated user could not be found."));
+    }
+
+    private UserProfileResponse toUserProfileResponse(User user) {
+        String universityName = user.getUniversity() != null ? user.getUniversity().getName() : "-";
+
+        Integer age = null;
+        if (user.getBirthDate() != null) {
+            age = Period.between(user.getBirthDate(), LocalDate.now()).getYears();
+        }
+
+        List<String> interests = user.getInterests() != null ? List.copyOf(user.getInterests()) : List.of();
+        List<String> photoUrls = user.getPhotoUrls() != null ? List.copyOf(user.getPhotoUrls()) : List.of();
+
+        return new UserProfileResponse(
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                universityName,
+                user.getDepartment(),
+                user.getBirthDate() != null ? user.getBirthDate().toString() : null,
+                age,
+                user.getBio(),
+                user.getGender() != null ? user.getGender().name() : null,
+                user.getPreference() != null ? user.getPreference().name() : null,
+                interests,
+                photoUrls,
+                user.getOnboardingCompleted()
+        );
+    }
+
+    private List<String> sanitizeInterests(List<String> interests) {
+        if (interests == null || interests.isEmpty()) {
+            return List.of();
+        }
+
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (String interest : interests) {
+            if (interest == null) {
+                continue;
+            }
+
+            String normalized = interest.trim();
+            if (!normalized.isBlank()) {
+                unique.add(normalized);
+            }
+        }
+
+        if (unique.size() > 10) {
+            throw new RuntimeException("You can select up to 10 interests.");
+        }
+
+        return new ArrayList<>(unique);
+    }
+
+    private List<String> sanitizePhotos(List<String> photoUrls) {
+        if (photoUrls == null) {
+            throw new RuntimeException("At least 3 photos are required.");
+        }
+
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (String photoUrl : photoUrls) {
+            if (photoUrl == null) {
+                continue;
+            }
+
+            String normalized = photoUrl.trim();
+            if (!normalized.isBlank()) {
+                unique.add(normalized);
+            }
+        }
+
+        if (unique.size() < 3) {
+            throw new RuntimeException("Please upload at least 3 photos.");
+        }
+
+        if (unique.size() > 8) {
+            throw new RuntimeException("You can upload up to 8 photos.");
+        }
+
+        return new ArrayList<>(unique);
+    }
+
+    private Gender parseGender(String rawGender) {
+        try {
+            return Gender.valueOf(rawGender.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid gender/preference value: " + rawGender);
+        }
     }
 
     @Transactional
     public void sendVerificationCode(String email){
-        codeRepository.deleteByEmail(email);
-        String code = String.format("%06d", new Random().nextInt(999999));
+        String normalizedEmail = normalizeEmail(email);
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new RuntimeException("This account has already been verified.");
+        }
+
+        pendingRegistrationRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("No pending registration found for this email address."));
+
+        codeRepository.deleteByEmail(normalizedEmail);
+        String code = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
         VerificationCode verificationCode = VerificationCode.builder()
-                .email(email)
+                .email(normalizedEmail)
                 .code(code)
                 .expiryDate(LocalDateTime.now().plusMinutes(10))
                 .build();
         codeRepository.save(verificationCode);
-        sendEmail(email, code);
+        sendEmail(normalizedEmail, code);
     }
 
     public void sendEmail(String to, String code){
@@ -83,27 +328,72 @@ public class AuthService {
 
     @Transactional
     public String verifyCode(String email, String code) {
-        VerificationCode vCode = codeRepository.findByEmailAndCode(email, code)
-                .orElseThrow(() -> new RuntimeException("Kod hatalı veya geçersiz."));
+        String normalizedEmail = normalizeEmail(email);
 
-        if (vCode.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Kodun süresi dolmuş. Yeni bir kod isteyin.");
+        if (code == null || code.trim().isBlank()) {
+            throw new RuntimeException("Verification code is required.");
         }
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı."));
+        String normalizedCode = code.trim();
+
+        VerificationCode vCode = codeRepository.findByEmailAndCode(normalizedEmail, normalizedCode)
+                .orElseThrow(() -> new RuntimeException("Verification code is invalid."));
+
+        if (vCode.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Verification code has expired. Please request a new one.");
+        }
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            codeRepository.delete(vCode);
+            throw new RuntimeException("This account is already verified.");
+        }
+
+        PendingRegistration pendingRegistration = pendingRegistrationRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new RuntimeException("No pending registration found for this email address."));
+
+        User user = new User();
+        user.setFirstName(pendingRegistration.getFirstName());
+        user.setLastName(pendingRegistration.getLastName());
+        user.setEmail(pendingRegistration.getEmail());
+        user.setPassword(pendingRegistration.getPassword());
+        user.setUniversity(pendingRegistration.getUniversity());
         user.setVerified(true);
+
         userRepository.save(user);
+        pendingRegistrationRepository.delete(pendingRegistration);
         codeRepository.delete(vCode);
         return jwtService.generateToken(user.getEmail(), new HashMap<>());
     }
 
-    public String getDomain(String email){
-        String domain = email.substring(email.indexOf("@")+1);
-        String[] parts = domain.split("\\.");
-        if(parts.length >= 3){
-            return parts[parts.length - 3] + "." + parts[parts.length - 2] + "." + parts[parts.length - 1];
+    private University resolveUniversityByEmail(String email){
+        if (email == null || !email.contains("@")) {
+            throw new IllegalArgumentException("Please provide a valid university email address.");
         }
-        return domain;
+
+        String fullDomain = email.substring(email.indexOf("@") + 1).trim().toLowerCase();
+        if (fullDomain.isBlank()) {
+            throw new IllegalArgumentException("Please provide a valid university email address.");
+        }
+
+        // Longest suffix matching algorithm:
+        // 1) Try exact domain (e.g., demiroglu.bilim.edu.tr)
+        // 2) If not found, trim left-most label and retry (e.g., ogr.dpu.edu.tr -> dpu.edu.tr)
+        // 3) Continue until no dot remains.
+        String candidate = fullDomain;
+        while (true) {
+            var match = universityRepository.findByDomainIgnoreCase(candidate);
+            if (match.isPresent()) {
+                return match.get();
+            }
+
+            int dotIndex = candidate.indexOf('.');
+            if (dotIndex < 0) {
+                break;
+            }
+
+            candidate = candidate.substring(dotIndex + 1);
+        }
+
+        throw new RuntimeException("Your university domain is not recognized: " + fullDomain);
     }
 }
