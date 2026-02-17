@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.api.backend.entity.User;
 import org.api.backend.repos.LikeRepository;
 import org.api.backend.repos.UserRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "bloom.simulation.dummy", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class DummyEngagementSimulationService {
     private final UserRepository userRepository;
     private final LikeRepository likeRepository;
