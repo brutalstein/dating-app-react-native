@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
-import { ExploreHubRateLimitError, exploreHubService } from '@/services/exploreHubService';
+import { ExploreHubAuthError, ExploreHubRateLimitError, exploreHubService } from '@/services/exploreHubService';
 import { connectRealtime, disconnectRealtime } from '@/services/realtimeService';
 import { exploreHubInitialState, exploreHubReducer } from './reducer';
 import { exploreHubSelectors } from './selectors';
@@ -63,7 +63,7 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
       const now = Date.now();
       dispatch({ type: 'LOAD_SUCCESS', payload: { data: payload, fetchedAt: now, staleAt: now + STALE_TIME_MS } });
     } catch (err) {
-      if (err instanceof ExploreHubRateLimitError) {
+      if (err instanceof ExploreHubRateLimitError || err instanceof ExploreHubAuthError) {
         dispatch({ type: 'SET_STALE_AT', payload: { staleAt: Date.now() + err.retryAfterMs } });
         const hasData =
           currentState.messages.length > 0 ||

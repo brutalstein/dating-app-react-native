@@ -1,4 +1,5 @@
-import api from '@/api/config';
+import * as SecureStore from 'expo-secure-store';
+import api, { sanitizeToken } from '@/api/config';
 import { ExploreHubPayload } from '@/types/exploreHub';
 
 let cachedPayload: ExploreHubPayload | null = null;
@@ -14,6 +15,16 @@ export class ExploreHubRateLimitError extends Error {
   constructor(message: string, retryAfterMs: number) {
     super(message);
     this.name = 'ExploreHubRateLimitError';
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+export class ExploreHubAuthError extends Error {
+  retryAfterMs: number;
+
+  constructor(message: string, retryAfterMs = 30_000) {
+    super(message);
+    this.name = 'ExploreHubAuthError';
     this.retryAfterMs = retryAfterMs;
   }
 }
@@ -104,6 +115,18 @@ export const exploreHubService = {
       return cachedPayload;
     }
 
+    const storedToken = await SecureStore.getItemAsync('token');
+    const token = sanitizeToken(storedToken);
+    if (!token) {
+      if (storedToken) {
+        await SecureStore.deleteItemAsync('token');
+      }
+      const retryAfterMs = 30_000;
+      blockedUntilMs = Date.now() + retryAfterMs;
+      nextAllowedNetworkFetchAtMs = blockedUntilMs;
+      throw new ExploreHubAuthError('Oturum bilgisi bulunamadı. Lütfen tekrar giriş yapın.', retryAfterMs);
+    }
+
     inFlightRequest = (async () => {
       try {
         const { data } = await api.get('/explore-hub');
@@ -122,6 +145,12 @@ export const exploreHubService = {
           blockedUntilMs = Date.now() + retryAfterMs;
           nextAllowedNetworkFetchAtMs = blockedUntilMs;
           throw new ExploreHubRateLimitError('Sunucu yoğun. Yeniden denemeden önce biraz bekleyin.', retryAfterMs);
+        }
+        if (status === 401 || status === 403) {
+          const retryAfterMs = 30_000;
+          blockedUntilMs = Date.now() + retryAfterMs;
+          nextAllowedNetworkFetchAtMs = blockedUntilMs;
+          throw new ExploreHubAuthError('Oturum süresi dolmuş olabilir. Lütfen tekrar giriş yapın.', retryAfterMs);
         }
         throw error;
       } finally {
