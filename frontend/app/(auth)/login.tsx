@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +10,7 @@ import { profileService } from '@/services/profileService';
 import AuthInput from '@/components/ui/auth-input';
 import BloomLogo from '@/components/ui/bloom-logo';
 
-const loginBackgroundGif = require('../../assets/images/pet-lover.gif');
+const loginBackgroundImage = require('../../assets/images/pet-lover.jpg');
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView className="flex-1 bg-black" edges={["top", "bottom"]}>
       <View className="flex-1 bg-black">
-        <Image source={loginBackgroundGif} className="absolute w-full h-full opacity-80" resizeMode="cover" />
+        <ExpoImage source={loginBackgroundImage} className="absolute w-full h-full opacity-80" contentFit="cover" transition={150} cachePolicy="memory-disk" />
         <LinearGradient colors={['rgba(0,0,0,0.30)', 'rgba(0,0,0,0.58)', 'rgba(0,0,0,0.80)']} locations={[0, 0.45, 1]} className="absolute w-full h-full" />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0} className="flex-1">

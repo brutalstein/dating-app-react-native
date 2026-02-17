@@ -67,6 +67,12 @@ Server eventleri:
 - `TYPING`
 - `EXPLORE_HUB_UPDATED`
 
+## Frontend optimizasyon notu (MVP+)
+
+- Login ekranındaki ağır `pet-lover.gif` yerine optimize edilmiş `pet-lover.jpg` kullanılır.
+- Görsel `expo-image` ile cache (`memory-disk`) + kısa transition ile yüklenir.
+- Bu değişiklik ilgili asset yükünü ~2.06MB -> ~0.04MB seviyesine indirir (aynı ekran akışını koruyarak).
+
 ## Çalıştırma
 
 ### Backend
@@ -101,3 +107,8 @@ npm run build:web
 ## Smoke test
 
 2 kullanıcı senaryosu: `docs/realtime-smoke-test.md`
+
+## Operasyon dokümanları
+
+- Environment/config: `docs/environment.md`
+- Runbook: `docs/runbook.md`
