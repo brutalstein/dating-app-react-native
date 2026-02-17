@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { captureException } from '@/services/monitoring';
-import { handleUnauthorizedSession } from '@/services/authSession';
+import { getAuthSnapshot, handleUnauthorizedSession } from '@/services/authSession';
 
 const INVALID_TOKEN_VALUES = new Set(['null', 'undefined', '']);
 const MONITOR_THROTTLE_MS = 60 * 1000;
@@ -74,16 +74,27 @@ api.interceptors.response.use(
     const url = String(error?.config?.url || 'unknown');
     const status = Number(error?.response?.status || 0);
 
-    if ((status === 401 || status === 403) && !isAuthEndpoint(url)) {
+    const isExploreHubRequest = method === 'GET' && isExploreHubPath(url);
+    const authSnapshot = getAuthSnapshot();
+    const shouldHandleUnauthorized =
+      (status === 401 || status === 403) &&
+      !isAuthEndpoint(url) &&
+      !(isExploreHubRequest && !authSnapshot.authenticated);
+
+    if (shouldHandleUnauthorized) {
       void handleUnauthorizedSession();
     }
 
-    const isExpectedExploreHubThrottle = status === 429 && method === 'GET' && isExploreHubPath(url);
+    const isExpectedExploreHubThrottle = status === 429 && isExploreHubRequest;
+    const isExpectedExploreHubAuthTransition = (status === 401 || status === 403) && isExploreHubRequest && !authSnapshot.authenticated;
     const shouldSuppress429Noise = status === 429;
     const bucketKey = `${method}:${url}:${status}`;
     const now = Date.now();
     const lastSentAt = monitorBuckets.get(bucketKey) || 0;
-    const shouldCapture = !isExpectedExploreHubThrottle && (!shouldSuppress429Noise || now - lastSentAt > MONITOR_THROTTLE_MS);
+    const shouldCapture =
+      !isExpectedExploreHubThrottle &&
+      !isExpectedExploreHubAuthTransition &&
+      (!shouldSuppress429Noise || now - lastSentAt > MONITOR_THROTTLE_MS);
 
     if (shouldCapture) {
       monitorBuckets.set(bucketKey, now);

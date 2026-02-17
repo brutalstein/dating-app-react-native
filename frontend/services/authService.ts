@@ -1,5 +1,6 @@
 import api, { sanitizeToken } from "@/api/config";
 import * as SecureStore from 'expo-secure-store';
+import { setAuthSnapshot } from '@/services/authSession';
 
 export interface UserData {
   firstName: string;
@@ -48,6 +49,7 @@ export const authService = {
             const token = sanitizeToken(data.token);
             if (token) {
                 await SecureStore.setItemAsync('token', token);
+                setAuthSnapshot({ ready: true, authenticated: true });
             }
 
             return data;
@@ -82,6 +84,7 @@ export const authService = {
             const token = sanitizeToken(data.token);
             if (token) {
                 await SecureStore.setItemAsync('token', token);
+                setAuthSnapshot({ ready: true, authenticated: true });
             }
 
             return data;
@@ -101,5 +104,6 @@ export const authService = {
           // no-op
         }
       }
+      setAuthSnapshot({ ready: true, authenticated: false });
     }
 };
