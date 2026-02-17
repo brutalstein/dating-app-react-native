@@ -14,6 +14,8 @@ export interface ExploreHubState extends DataLifecycle {
   messages: MessageThread[];
   notifications: NotificationItem[];
   activities: ActivityItem[];
+  unreadMessages: number;
+  unreadNotifications: number;
 }
 
 export type ExploreHubAction =
@@ -24,4 +26,5 @@ export type ExploreHubAction =
   | { type: 'MARK_THREAD_READ_ROLLBACK'; payload: { snapshot: MessageThread[] } }
   | { type: 'MARK_NOTIFICATION_READ_OPTIMISTIC'; payload: { id: string } }
   | { type: 'MARK_NOTIFICATION_READ_ROLLBACK'; payload: { snapshot: NotificationItem[] } }
+  | { type: 'APPLY_REALTIME_PAYLOAD'; payload: { data: ExploreHubPayload } }
   | { type: 'INVALIDATE_CACHE' };

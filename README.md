@@ -1,40 +1,87 @@
-# Expo Monorepo (Frontend + Backend)
+# Bloom Expo Monorepo (Frontend + Backend)
 
-## Project Structure
+Bu repo Bloom dating uygulamasının **Expo frontend** + **Spring Boot backend** kaynak kodlarını içerir.
 
-- `frontend/` → Expo Router mobile/web app
-  - `app/(auth)` authentication flow (login/register/verify)
-  - `app/onboarding.tsx` onboarding wizard
-  - `app/(tabs)` authenticated tab screens (explore/profile/settings)
-  - `components/ui/bloom-brand.tsx` Bloom brand component
-  - `components/ui/aurora-background.tsx` animated procedural background
-  - `api/` axios client and API base URL resolution
-  - `services/` domain services (`authService`, `profileService`)
-- `backend/` → Spring Boot REST API
-  - `controller/` HTTP endpoints (`AuthController`)
-  - `service/` business logic (`AuthService`, `JwtService`)
-  - `entity/` JPA entities
-  - `repos/` repository layer
-  - `dto/` request/response contracts
+## Seçilen Real-time Altyapı
 
-## UX/UI Notes (2026-02)
+- **Backend:** Spring Boot + Spring WebSocket + STOMP
+- **Neden:**
+  - Realtime DB zorunluluğu olmadan server-authoritative event akışı sağlar
+  - JWT ile hem REST hem socket kanalını güvenli kullanmaya uygun
+  - Activity / Notification / Message gibi farklı domain eventlerini ölçekli şekilde yönetmeye uygun
+- **Frontend:** Expo + `@stomp/stompjs` abonelik katmanı
 
-- Login/Register ekranları Bloom marka diliyle yeniden tasarlandı.
-- Eski GIF temelli arka plan yerine **procedural (kodla üretilen) animasyonlu aurora arka planı** kullanıldı.
-- Bu yaklaşımda dış görsel asset kaynağı yoktur; telif riski düşüktür ve mobilde daha hafiftir.
-- Onboarding kısa, adımlı ve üniversite kullanıcı senaryosuna odaklı hale getirildi.
+## Yeni Domainler ve Veri Katmanı
 
-## Quality Commands
+Eklenen tablolar/entity’ler:
 
-### Frontend
+- `likes` (`LikeInteraction`)
+- `matches` (`MatchEntity`)
+- `conversations` (`Conversation`)
+- `messages` (`MessageEntity`, `readAt` ile read durumu)
+- `notifications` (`NotificationEntity`)
+- `activities` (`ActivityEntity`)
+
+Migration:
+
+- `backend/src/main/resources/db/migration/V1__realtime_social_chat.sql`
+
+## API ve Socket Yüzeyi
+
+### REST endpointleri
+
+- `POST /api/likes/{targetUserId}` → like gönderir, karşılıklıysa match + conversation üretir
+- `GET /api/explore-hub` → messages/notifications/activity + unread sayılarını döner
+- `GET /api/conversations` → kullanıcının sohbet listesi
+- `GET /api/conversations/{conversationId}/messages` → conversation mesajları
+- `POST /api/conversations/{conversationId}/read` → conversation unread mesajlarını read yapar
+
+### WebSocket/STOMP
+
+- Endpoint: `ws://<host>:8080/ws`
+- Client app prefix: `/app`
+- User queue: `/user/queue/events`
+- Message gönderimi: `/app/chat.send`
+- Event tipleri:
+  - `LIKE_RECEIVED`
+  - `MATCH_CREATED`
+  - `MESSAGE_RECEIVED`
+  - `MESSAGE_SENT`
+  - `MESSAGES_READ`
+  - `EXPLORE_HUB_UPDATED`
+
+## Frontend Değişiklikleri
+
+- `services/exploreHubService.ts` mock data yerine backend’den gerçek payload çeker
+- `services/realtimeService.ts` ile STOMP bağlantı/abonelik eklendi
+- `store/exploreHub/*` realtime payload apply + canlı unread yönetimi eklendi
+- `api/config.ts` içerisine `WS_BASE_URL` eklendi
+- `package.json` içerisine `@stomp/stompjs` eklendi
+
+## Kurulum ve Çalıştırma
+
+### 1) Backend
+
+```bash
+cd backend
+./mvnw spring-boot:run
+```
+
+Varsayılan DB: `jdbc:postgresql://localhost:5432/bloomDb`
+
+### 2) Frontend
 
 ```bash
 cd frontend
 npm install
-npm run lint
-npm run typecheck
-npm run build:web
+npm start
 ```
+
+Opsiyonel env:
+
+- `EXPO_PUBLIC_API_BASE_URL=http://<ip>:8080/api`
+
+## Doğrulama Komutları
 
 ### Backend
 
@@ -43,18 +90,27 @@ cd backend
 ./mvnw test
 ```
 
-> Note: Backend commands require Java 17+ and `JAVA_HOME` configured.
+### Frontend
 
-## Runtime Configuration
+```bash
+cd frontend
+npm run typecheck
+npm run lint
+npm run build:web
+```
 
-- Frontend API base URL priority:
-  1. `EXPO_PUBLIC_API_BASE_URL`
-  2. Expo host-based local URL (`http://<host>:8080/api`)
-  3. fallback URL from `frontend/api/config.ts`
+## E2E Smoke Senaryosu (2 kullanıcı)
 
-## Branch/Commit Recommendation
+Detaylı adımlar için: `docs/realtime-smoke-test.md`
 
-Use focused commits:
-1. `feat(frontend): redesign bloom auth and onboarding experience`
-2. `chore(backend): trim pom dependencies and keep only required starters`
-3. `docs: document ui/background licensing approach and runbook`
+Özet akış:
+
+1. User-A ve User-B login olur
+2. A, B’ye like gönderir → B anlık `LIKE_RECEIVED`
+3. B de A’ya like atar → iki tarafta `MATCH_CREATED` + explore hub update
+4. A mesaj yollar (`/app/chat.send`) → B anlık `MESSAGE_RECEIVED`
+5. B konuşmayı read yapar → A `MESSAGES_READ` eventi alır
+
+## Not
+
+Realtime DB kullanımı bu kurulum için zorunlu değildir; backend + websocket ile uçtan uca anlık akış sağlanmıştır.

@@ -9,6 +9,8 @@ const initialState: ExploreHubState = {
   messages: [],
   notifications: [],
   activities: [],
+  unreadMessages: 0,
+  unreadNotifications: 0,
 };
 
 function resolveStatus(next: Pick<ExploreHubState, 'messages' | 'notifications' | 'activities'>): 'success' | 'empty' {
@@ -31,6 +33,8 @@ export function exploreHubReducer(state: ExploreHubState, action: ExploreHubActi
       return {
         ...state,
         ...data,
+        unreadMessages: data.unreadMessages ?? data.messages.reduce((acc, m) => acc + m.unreadCount, 0),
+        unreadNotifications: data.unreadNotifications ?? data.notifications.filter((n) => !n.isRead).length,
         status: resolveStatus(data),
         error: null,
         isRefreshing: false,
@@ -51,6 +55,7 @@ export function exploreHubReducer(state: ExploreHubState, action: ExploreHubActi
       return {
         ...state,
         messages: state.messages.map((item) => (item.id === action.payload.id ? { ...item, unreadCount: 0 } : item)),
+        unreadMessages: Math.max(0, state.messages.filter((m) => m.id === action.payload.id).reduce((a, m) => a + m.unreadCount, 0) ? state.unreadMessages - state.messages.filter((m) => m.id === action.payload.id).reduce((a, m) => a + m.unreadCount, 0) : state.unreadMessages),
       };
 
     case 'MARK_THREAD_READ_ROLLBACK':
@@ -65,6 +70,7 @@ export function exploreHubReducer(state: ExploreHubState, action: ExploreHubActi
         notifications: state.notifications.map((item) =>
           item.id === action.payload.id ? { ...item, isRead: true } : item
         ),
+        unreadNotifications: Math.max(0, state.unreadNotifications - 1),
       };
 
     case 'MARK_NOTIFICATION_READ_ROLLBACK':
@@ -72,6 +78,17 @@ export function exploreHubReducer(state: ExploreHubState, action: ExploreHubActi
         ...state,
         notifications: action.payload.snapshot,
       };
+
+    case 'APPLY_REALTIME_PAYLOAD': {
+      const data = action.payload.data;
+      return {
+        ...state,
+        ...data,
+        unreadMessages: data.unreadMessages ?? data.messages.reduce((acc, m) => acc + m.unreadCount, 0),
+        unreadNotifications: data.unreadNotifications ?? data.notifications.filter((n) => !n.isRead).length,
+        status: resolveStatus(data),
+      };
+    }
 
     case 'INVALIDATE_CACHE':
       return {

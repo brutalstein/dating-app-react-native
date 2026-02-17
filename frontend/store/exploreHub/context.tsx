@@ -1,5 +1,6 @@
-import React, { createContext, useCallback, useContext, useMemo, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
 import { exploreHubService } from '@/services/exploreHubService';
+import { connectRealtime, disconnectRealtime } from '@/services/realtimeService';
 import { exploreHubInitialState, exploreHubReducer } from './reducer';
 import { exploreHubSelectors } from './selectors';
 import { ExploreHubState } from './types';
@@ -43,7 +44,7 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
       dispatch({ type: 'LOAD_START', payload: { refreshing: state.status !== 'idle' } });
 
       try {
-        const payload = await exploreHubService.fetchExploreHub(forceRefresh);
+        const payload = await exploreHubService.fetchExploreHub();
         const now = Date.now();
         dispatch({ type: 'LOAD_SUCCESS', payload: { data: payload, fetchedAt: now, staleAt: now + STALE_TIME_MS } });
       } catch (err) {
@@ -87,6 +88,15 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
     },
     [state.messages]
   );
+
+  useEffect(() => {
+    connectRealtime((eventType, payload) => {
+      if (eventType === 'EXPLORE_HUB_UPDATED' || eventType === 'LIKE_RECEIVED' || eventType === 'MATCH_CREATED') {
+        dispatch({ type: 'APPLY_REALTIME_PAYLOAD', payload: { data: payload } });
+      }
+    });
+    return () => disconnectRealtime();
+  }, []);
 
   const value = useMemo(
     () => ({ state, load, refresh, invalidate, markNotificationAsRead, markThreadAsRead }),

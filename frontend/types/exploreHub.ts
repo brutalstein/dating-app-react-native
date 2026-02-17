@@ -41,4 +41,6 @@ export interface ExploreHubPayload {
   messages: MessageThread[];
   notifications: NotificationItem[];
   activities: ActivityItem[];
+  unreadMessages?: number;
+  unreadNotifications?: number;
 }
