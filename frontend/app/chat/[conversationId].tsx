@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Buffer } from 'buffer';
 import { chatService } from '@/services/chatService';
 import { ackDelivered, connectRealtime, sendRealtimeMessage, sendTypingEvent } from '@/services/realtimeService';
+import { enqueueMessage, flushQueue, initOfflineQueue, markSent } from '@/services/chatOfflineQueue';
 import { ChatMessage } from '@/types/chat';
 
 const statusLabel: Record<ChatMessage['status'], string> = {
@@ -12,7 +13,7 @@ const statusLabel: Record<ChatMessage['status'], string> = {
   sent: '✓ gönderildi',
   delivered: '✓✓ iletildi',
   read: '✓✓ görüldü',
-  failed: '⚠ gönderilemedi',
+  failed: '⚠ kuyruğa alındı / gönderilemedi',
 };
 
 export default function ChatScreen() {
@@ -40,6 +41,7 @@ export default function ChatScreen() {
         }
       }
 
+      await initOfflineQueue();
       const list = await chatService.getMessages(conversationId);
       setMessages(
         list.map((m: any) => ({
@@ -61,6 +63,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     connectRealtime({
+      onConnected: () => { flushQueue(); },
       onEvent: (eventType: string, payload: any) => {
         if (eventType === 'MESSAGE_RECEIVED' && payload.conversationId === conversationId) {
           setMessages((prev) => [...prev, {
@@ -79,6 +82,7 @@ export default function ChatScreen() {
         }
 
         if (eventType === 'MESSAGE_SENT' && payload.conversationId === conversationId) {
+          markSent(payload.clientMessageId);
           setMessages((prev) => prev.map((m) => (
             m.clientMessageId === payload.clientMessageId
               ? { ...m, id: payload.id, status: 'sent', createdAt: payload.createdAt }
@@ -130,6 +134,7 @@ export default function ChatScreen() {
     try {
       sendRealtimeMessage(conversationId, content, clientMessageId);
     } catch {
+      enqueueMessage({ id: clientMessageId, conversationId, content, clientMessageId });
       setMessages((prev) => prev.map((m) => (m.clientMessageId === clientMessageId ? { ...m, status: 'failed' } : m)));
       return;
     }
@@ -140,17 +145,19 @@ export default function ChatScreen() {
           ? { ...m, status: 'failed' }
           : m
       )));
+      enqueueMessage({ id: clientMessageId, conversationId, content, clientMessageId });
     }, 5000);
   };
 
   const retry = (m: ChatMessage) => {
     if (m.status !== 'failed') return;
     setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, status: 'sending' } : x)));
-    try {
-      sendRealtimeMessage(conversationId, m.content, m.clientMessageId || `${Date.now()}`);
-    } catch {
-      setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, status: 'failed' } : x)));
-    }
+    enqueueMessage({
+      id: m.clientMessageId || m.id,
+      conversationId,
+      content: m.content,
+      clientMessageId: m.clientMessageId || `${Date.now()}`,
+    }).then(() => flushQueue());
   };
 
   const sorted = useMemo(() => messages.slice().sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)), [messages]);

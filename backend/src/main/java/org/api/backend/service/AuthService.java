@@ -120,6 +120,9 @@ public class AuthService {
         if(!passwordEncoder.matches(password, user.getPassword())){
             throw new  RuntimeException("Invalid email or password.");
         }
+        if (Boolean.TRUE.equals(user.getBanned())) {
+            throw new RuntimeException("Your account is banned. Reason: " + (user.getBannedReason() == null ? "policy violation" : user.getBannedReason()));
+        }
 
         return jwtService.generateToken(user.getEmail(), new HashMap<>());
     }
@@ -256,7 +259,8 @@ public class AuthService {
                 user.getRelationshipIntent() != null ? user.getRelationshipIntent().name() : null,
                 interests,
                 photoUrls,
-                user.getOnboardingCompleted()
+                user.getOnboardingCompleted(),
+                user.getPushEnabled()
         );
     }
 

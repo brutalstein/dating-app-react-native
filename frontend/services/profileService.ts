@@ -18,6 +18,7 @@ export interface UserProfile {
   interests: string[];
   photoUrls: string[];
   onboardingCompleted: boolean;
+  pushEnabled?: boolean;
 }
 
 export interface OnboardingPayload {
@@ -102,6 +103,14 @@ export const profileService = {
       return res.data as UserProfile;
     } catch (error: any) {
       throw new Error(getErrorMessage(error, 'Failed to update profile photos.'));
+    }
+  },
+
+  setPushPreference: async (pushEnabled: boolean): Promise<void> => {
+    try {
+      await api.put('/push/preferences', { pushEnabled });
+    } catch (error: any) {
+      throw new Error(getErrorMessage(error, 'Failed to update push preference.'));
     }
   },
 

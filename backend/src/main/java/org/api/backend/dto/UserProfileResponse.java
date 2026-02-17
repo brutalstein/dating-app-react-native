@@ -18,6 +18,7 @@ public record UserProfileResponse(
         String relationshipIntent,
         List<String> interests,
         List<String> photoUrls,
-        Boolean onboardingCompleted
+        Boolean onboardingCompleted,
+        Boolean pushEnabled
 ) {
 }

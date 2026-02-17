@@ -88,10 +88,28 @@ export default function SettingScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          onPress={async () => {
+            const next = !(profile?.pushEnabled ?? true);
+            await profileService.setPushPreference(next);
+            setProfile((p) => (p ? { ...p, pushEnabled: next } : p));
+          }}
+          className="mt-3 h-14 rounded-2xl items-center justify-center bg-zinc-800 border border-zinc-700"
+        >
+          <Text className="text-white font-bold text-base">Push Bildirimleri: {(profile?.pushEnabled ?? true) ? 'Açık' : 'Kapalı'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={() => router.push('/premium-purchase' as any)}
           className="mt-3 h-14 rounded-2xl items-center justify-center bg-[#FF5A5F]/20 border border-[#FF5A5F]/50"
         >
           <Text className="text-white font-bold text-base">Premium Satın Al</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => router.push('/admin/moderation' as any)}
+          className="mt-3 h-14 rounded-2xl items-center justify-center bg-zinc-800 border border-zinc-700"
+        >
+          <Text className="text-white font-bold text-base">Admin Moderasyon Paneli</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

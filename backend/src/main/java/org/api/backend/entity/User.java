@@ -90,4 +90,12 @@ public class User {
     private Double longitude;
 
     private LocalDateTime lastSeen;
+
+    @Column(nullable = false)
+    private Boolean pushEnabled = true;
+
+    @Column(nullable = false)
+    private Boolean banned = false;
+
+    private String bannedReason;
 }

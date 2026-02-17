@@ -24,6 +24,7 @@ public class SocialService {
     private final ActivityRepository activityRepository;
     private final RealtimePushService realtimePushService;
     private final PresenceService presenceService;
+    private final PushNotificationService pushNotificationService;
 
     @Transactional
     public LikeResponse sendLike(User sender, UUID targetUserId) {
@@ -43,6 +44,7 @@ public class SocialService {
 
         createNotification(receiver, NotificationType.LIKE, "Yeni beğeni", sender.getFirstName() + " seni beğendi.");
         createActivity(receiver, sender, ActivityType.LIKE_RECEIVED, sender.getFirstName() + " profilini beğendi.");
+        pushNotificationService.notifyEvent(receiver, "Yeni beğeni", sender.getFirstName() + " seni beğendi.", Map.of("event", "LIKE_RECEIVED", "senderId", sender.getId().toString()));
 
         realtimePushService.sendToUser(receiver.getEmail(), "LIKE_RECEIVED", buildExploreHub(receiver));
 
@@ -68,6 +70,8 @@ public class SocialService {
 
         createActivity(sender, receiver, ActivityType.MATCH_CREATED, receiver.getFirstName() + " ile eşleşme oldu.");
         createActivity(receiver, sender, ActivityType.MATCH_CREATED, sender.getFirstName() + " ile eşleşme oldu.");
+        pushNotificationService.notifyEvent(sender, "Yeni eşleşme", receiver.getFirstName() + " ile eşleştiniz.", Map.of("event", "MATCH_CREATED", "matchId", match.getId().toString()));
+        pushNotificationService.notifyEvent(receiver, "Yeni eşleşme", sender.getFirstName() + " ile eşleştiniz.", Map.of("event", "MATCH_CREATED", "matchId", match.getId().toString()));
 
         realtimePushService.sendToUser(sender.getEmail(), "MATCH_CREATED", buildExploreHub(sender));
         realtimePushService.sendToUser(receiver.getEmail(), "MATCH_CREATED", buildExploreHub(receiver));
@@ -161,6 +165,7 @@ public class SocialService {
 
         createNotification(recipient, NotificationType.MESSAGE, "Yeni mesaj", user.getFirstName() + ": " + message.getContent());
         createActivity(recipient, user, ActivityType.MESSAGE_RECEIVED, user.getFirstName() + " sana mesaj gönderdi.");
+        pushNotificationService.notifyEvent(recipient, "Yeni mesaj", user.getFirstName() + ": " + message.getContent(), Map.of("event", "MESSAGE_RECEIVED", "conversationId", conversationId.toString()));
 
         var response = toMessageResponse(message);
         realtimePushService.sendToUser(recipient.getEmail(), "MESSAGE_RECEIVED", response);

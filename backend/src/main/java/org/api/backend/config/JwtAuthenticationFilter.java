@@ -47,6 +47,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
+        if (Boolean.TRUE.equals(user.getBanned())) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.getWriter().write("Account is banned");
+            return;
+        }
 
         var auth = new UsernamePasswordAuthenticationToken(
                 user,

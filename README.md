@@ -157,3 +157,26 @@ Header: `Retry-After`.
 
 - Environment/config: `docs/environment.md`
 - Runbook: `docs/runbook.md`
+- E2E runbook: `docs/e2e-runbook.md`
+
+## Yeni kapsam (6/7/8/9)
+
+### Push env/config
+- `PUSH_ENABLED`
+- `FCM_SERVER_KEY`
+- `FCM_URL`
+- `APNS_KEY_ID`
+- `APNS_TEAM_ID`
+- `APNS_BUNDLE_ID`
+- `APNS_PRIVATE_KEY`
+- `APNS_SANDBOX`
+
+Push endpointleri:
+- `POST /api/push/devices`
+- `PUT /api/push/preferences`
+
+### Moderasyon endpointleri
+- `POST /api/moderation/reports`
+- `GET /api/moderation/reports`
+- `PUT /api/moderation/reports/{reportId}`
+- `POST /api/moderation/actions`

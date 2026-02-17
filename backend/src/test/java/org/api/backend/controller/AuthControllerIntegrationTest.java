@@ -97,6 +97,7 @@ class AuthControllerIntegrationTest {
                         "SERIOUS",
                         List.of("Music", "Travel"),
                         List.of("https://cdn/a.jpg", "https://cdn/b.jpg", "https://cdn/c.jpg"),
+                        true,
                         true
                 ));
 
