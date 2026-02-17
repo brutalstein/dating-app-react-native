@@ -1,17 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import BloomLogo from '@/components/ui/bloom-logo';
 
 const BLOOM_COLOR = '#FF5A5F';
 
-export const Header = () => {
+export const Header = React.memo(function Header() {
   return (
     <View style={styles.headerContainer}>
-      <View style={styles.logoContainer}>
-        <Ionicons name="flame" size={20} color={BLOOM_COLOR} style={styles.logoIcon} />
-        <Text style={styles.logoText}>bloom</Text>
-        <View style={styles.onlineDot} />
-      </View>
+      <BloomLogo size="md" showStatusDot />
 
       <View style={styles.iconGroup}>
         <TouchableOpacity style={styles.iconButton}>
@@ -23,9 +20,7 @@ export const Header = () => {
           <View style={styles.badge} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.iconButton}
-          >
+        <TouchableOpacity style={styles.iconButton}>
           <Ionicons name="chatbubble-ellipses-outline" size={24} color="white" />
         </TouchableOpacity>
 
@@ -36,9 +31,7 @@ export const Header = () => {
       </View>
     </View>
   );
-};
-
-
+});
 
 const styles = StyleSheet.create({
   headerContainer: {
@@ -49,28 +42,6 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 10,
     backgroundColor: '#000',
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoIcon: {
-    marginRight: 6,
-    marginTop: 2,
-  },
-  logoText: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: BLOOM_COLOR,
-    letterSpacing: -1.5,
-  },
-  onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4CAF50',
-    marginLeft: 4,
-    marginTop: 8,
   },
   iconGroup: {
     flexDirection: 'row',

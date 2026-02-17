@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { memo, useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, Image, TouchableOpacity, GestureResponderEvent } from 'react-native';
 import Swiper from 'react-native-deck-swiper';
-import { dummyUsers } from '../../constants/dummyUsers'; 
+import { dummyUsers } from '../../constants/dummyUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Header } from '@/components/header';
@@ -10,31 +10,32 @@ const { height, width } = Dimensions.get('window');
 const BLOOM_COLOR = '#FF5A5F';
 const LIKE_GREEN = '#4CAF50';
 
-const Card = ({ user }: { user: typeof dummyUsers[0] }) => {
-  const [currentStep, setCurrentStep] = useState(0); 
+type User = (typeof dummyUsers)[0];
+
+const Card = memo(function Card({ user }: { user: User }) {
+  const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = user.photos.length + 1;
 
-  const handleTap = (event: GestureResponderEvent) => {
-    const x = event.nativeEvent.locationX;
-    
-    if (x < width / 2) {
-      setCurrentStep((prev) => (prev === 0 ? totalSteps - 1 : prev - 1));
-    } else {
-      setCurrentStep((prev) => (prev === totalSteps - 1 ? 0 : prev + 1));
-    }
-  };
+  const handleTap = useCallback(
+    (event: GestureResponderEvent) => {
+      const x = event.nativeEvent.locationX;
+
+      setCurrentStep((prev) => {
+        if (x < width / 2) {
+          return prev === 0 ? totalSteps - 1 : prev - 1;
+        }
+
+        return prev === totalSteps - 1 ? 0 : prev + 1;
+      });
+    },
+    [totalSteps]
+  );
 
   return (
     <TouchableOpacity activeOpacity={1} onPress={handleTap} style={styles.card}>
       <View style={styles.progressBarContainer}>
         {Array.from({ length: totalSteps }).map((_, i) => (
-          <View 
-            key={i} 
-            style={[
-              styles.progressStep, 
-              { backgroundColor: i <= currentStep ? 'white' : 'rgba(255,255,255,0.3)' }
-            ]} 
-          />
+          <View key={i} style={[styles.progressStep, { backgroundColor: i <= currentStep ? 'white' : 'rgba(255,255,255,0.3)' }]} />
         ))}
       </View>
 
@@ -42,7 +43,9 @@ const Card = ({ user }: { user: typeof dummyUsers[0] }) => {
         <View style={{ flex: 1 }}>
           <Image source={{ uri: user.photos[currentStep] }} style={styles.image} />
           <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={styles.gradient}>
-            <Text style={styles.nameText}>{user.firstName}, {user.age}</Text>
+            <Text style={styles.nameText}>
+              {user.firstName}, {user.age}
+            </Text>
             <View style={styles.uniRow}>
               <Ionicons name="location" size={16} color={BLOOM_COLOR} />
               <Text style={styles.uniText}>{user.universityName}</Text>
@@ -53,7 +56,7 @@ const Card = ({ user }: { user: typeof dummyUsers[0] }) => {
         <View style={styles.infoContent}>
           <Text style={styles.infoTitle}>Hakkında</Text>
           <Text style={styles.bioText}>{user.bio}</Text>
-          
+
           <Text style={styles.infoTitle}>İlgi Alanları</Text>
           <View style={styles.interestContainer}>
             {user.interests.map((interest, i) => (
@@ -62,12 +65,12 @@ const Card = ({ user }: { user: typeof dummyUsers[0] }) => {
               </View>
             ))}
           </View>
-          
+
           <View style={styles.infoFooter}>
-             <Ionicons name="school" size={20} color={BLOOM_COLOR} />
-             <Text style={styles.footerText}>{user.department}</Text>
+            <Ionicons name="school" size={20} color={BLOOM_COLOR} />
+            <Text style={styles.footerText}>{user.department}</Text>
           </View>
-          
+
           <View style={styles.loopHint}>
             <Text style={styles.loopHintText}>Başa dönmek için tıkla</Text>
             <Ionicons name="refresh" size={12} color="#666" />
@@ -76,9 +79,15 @@ const Card = ({ user }: { user: typeof dummyUsers[0] }) => {
       )}
     </TouchableOpacity>
   );
-};
+});
 
 export default function ExploreScreen() {
+  const swiperRef = useRef<any>(null);
+
+  const renderCard = useCallback((user: User) => <Card user={user} />, []);
+  const handleSwipeLeft = useCallback(() => console.log('Nope'), []);
+  const handleSwipeRight = useCallback(() => console.log('Like'), []);
+
   return (
     <View style={styles.container}>
       <View style={styles.headerWrapper}>
@@ -87,15 +96,15 @@ export default function ExploreScreen() {
 
       <View style={styles.swiperArea}>
         <Swiper
+          ref={swiperRef}
           cards={dummyUsers}
-          renderCard={(user) => <Card user={user} />}
-          onSwipedLeft={() => console.log('Nope')}
-          onSwipedRight={() => console.log('Like')}
-          backgroundColor={'transparent'}
+          renderCard={renderCard}
+          onSwipedLeft={handleSwipeLeft}
+          onSwipedRight={handleSwipeRight}
+          backgroundColor="transparent"
           stackSize={3}
           cardVerticalMargin={20}
           verticalSwipe={false}
-          
           overlayLabels={{
             left: {
               title: '✕',
@@ -118,8 +127,8 @@ export default function ExploreScreen() {
                   justifyContent: 'flex-start',
                   marginTop: 40,
                   marginLeft: -30,
-                }
-              }
+                },
+              },
             },
             right: {
               title: '✔',
@@ -142,19 +151,19 @@ export default function ExploreScreen() {
                   justifyContent: 'flex-start',
                   marginTop: 40,
                   marginLeft: 30,
-                }
-              }
-            }
+                },
+              },
+            },
           }}
         />
       </View>
-      
+
       <View style={styles.bottomButtons}>
-        <TouchableOpacity style={[styles.button, { borderColor: '#E5566D' }]}>
-           <Ionicons name="close" size={35} color="#E5566D" />
+        <TouchableOpacity style={[styles.button, { borderColor: '#E5566D' }]} onPress={() => swiperRef.current?.swipeLeft()}>
+          <Ionicons name="close" size={35} color="#E5566D" />
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, { borderColor: LIKE_GREEN }]}>
-           <Ionicons name="checkmark" size={35} color={LIKE_GREEN} />
+        <TouchableOpacity style={[styles.button, { borderColor: LIKE_GREEN }]} onPress={() => swiperRef.current?.swipeRight()}>
+          <Ionicons name="checkmark" size={35} color={LIKE_GREEN} />
         </TouchableOpacity>
       </View>
     </View>
@@ -188,7 +197,7 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     zIndex: 10,
-    gap: 4
+    gap: 4,
   },
   progressStep: { flex: 1, height: 3, borderRadius: 2 },
   image: { width: '100%', height: '100%', position: 'absolute' },
@@ -206,8 +215,6 @@ const styles = StyleSheet.create({
   footerText: { color: '#AAA', fontSize: 15, fontWeight: '500' },
   loopHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 10, opacity: 0.5 },
   loopHintText: { color: '#666', fontSize: 10, fontWeight: '600' },
-  
-  // Alt Butonlar
   bottomButtons: { flexDirection: 'row', justifyContent: 'center', gap: 35, position: 'absolute', bottom: 35, width: '100%' },
-  button: { width: 70, height: 70, borderRadius: 35, borderWidth: 3, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)' }
+  button: { width: 70, height: 70, borderRadius: 35, borderWidth: 3, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)' },
 });

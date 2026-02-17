@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { authService } from '@/services/authService';
 import AuthInput from '@/components/ui/auth-input';
+import BloomLogo from '@/components/ui/bloom-logo';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -54,10 +55,8 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-black">
       <ScrollView className="px-6 pt-16" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
         <View className="items-center mb-8">
-          <View className="w-20 h-20 bg-zinc-900 rounded-3xl items-center justify-center mb-4 border border-zinc-700">
-            <Ionicons name="flame" size={40} color="#FF5A5F" />
-          </View>
-          <Text className="text-white text-3xl font-bold">Bloom&apos;a Katıl</Text>
+          <BloomLogo size="lg" withBackground />
+          <Text className="text-white text-3xl font-bold mt-5">Hesap Oluştur</Text>
           <Text className="text-zinc-400 mt-2 text-center">Üniversite topluluğuna katılıp bağlantılarını büyüt.</Text>
         </View>
 

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
 import AuthInput from '@/components/ui/auth-input';
+import BloomLogo from '@/components/ui/bloom-logo';
 
 const loginBackgroundGif = require('../../assets/images/pet-lover.gif');
 
@@ -55,10 +56,8 @@ export default function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} className="px-6" keyboardShouldPersistTaps="handled">
           <View className="items-center mb-10">
-            <View className="w-24 h-24 bg-zinc-900/90 rounded-3xl items-center justify-center mb-6 border border-zinc-600">
-              <Ionicons name="flame" size={48} color="#FF5A5F" />
-            </View>
-            <Text className="text-white text-4xl font-bold">Bloom&apos;a Giriş Yap</Text>
+            <BloomLogo size="lg" withBackground />
+            <Text className="text-white text-4xl font-bold mt-5">Giriş Yap</Text>
             <Text className="text-zinc-300 mt-3 text-center text-base">Üniversite mailinle güvenli şekilde giriş yap.</Text>
           </View>
 
