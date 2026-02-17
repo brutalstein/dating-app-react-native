@@ -5,18 +5,22 @@ import { useRouter } from 'expo-router';
 
 import { authService } from '@/services/authService';
 import { profileService, UserProfile } from '@/services/profileService';
+import { safetyService, PrivacySettings } from '@/services/safetyService';
+import { canUseAdminPanel } from '@/components/admin/moderation-ui';
 
 export default function SettingScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [privacy, setPrivacy] = useState<PrivacySettings | null>(null);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await profileService.getProfile();
+      const [data, privacyData] = await Promise.all([profileService.getProfile(), safetyService.getPrivacy()]);
       setProfile(data);
+      setPrivacy(privacyData);
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'Settings could not be loaded.');
     } finally {
@@ -99,18 +103,42 @@ export default function SettingScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          onPress={async () => {
+            const next = privacy?.profileVisibility === 'PUBLIC' ? 'MATCHES_ONLY' : 'PUBLIC';
+            const updated = await safetyService.updatePrivacy({ profileVisibility: next });
+            setPrivacy(updated);
+          }}
+          className="mt-3 h-14 rounded-2xl items-center justify-center bg-zinc-800 border border-zinc-700"
+        >
+          <Text className="text-white font-bold text-base">Profil Görünürlüğü: {privacy?.profileVisibility === 'MATCHES_ONLY' ? 'Sadece Eşleşmeler' : 'Herkes'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={async () => {
+            const next = privacy?.lastSeenVisibility === 'EVERYONE' ? 'NOBODY' : 'EVERYONE';
+            const updated = await safetyService.updatePrivacy({ lastSeenVisibility: next });
+            setPrivacy(updated);
+          }}
+          className="mt-3 h-14 rounded-2xl items-center justify-center bg-zinc-800 border border-zinc-700"
+        >
+          <Text className="text-white font-bold text-base">Son Görülme: {privacy?.lastSeenVisibility === 'NOBODY' ? 'Gizli' : 'Açık'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={() => router.push('/premium-purchase' as any)}
           className="mt-3 h-14 rounded-2xl items-center justify-center bg-[#FF5A5F]/20 border border-[#FF5A5F]/50"
         >
           <Text className="text-white font-bold text-base">Premium Satın Al</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => router.push('/admin/moderation' as any)}
-          className="mt-3 h-14 rounded-2xl items-center justify-center bg-zinc-800 border border-zinc-700"
-        >
-          <Text className="text-white font-bold text-base">Admin Moderasyon Paneli</Text>
-        </TouchableOpacity>
+        {canUseAdminPanel(profile?.role as any) && (
+          <TouchableOpacity
+            onPress={() => router.push('/admin/moderation' as any)}
+            className="mt-3 h-14 rounded-2xl items-center justify-center bg-zinc-800 border border-zinc-700"
+          >
+            <Text className="text-white font-bold text-base">Admin Moderasyon Paneli</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           onPress={handleLogout}

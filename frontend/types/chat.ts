@@ -1,4 +1,4 @@
-export type ChatMessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type ChatMessageStatus = 'sending' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface ChatMessage {
   id: string;

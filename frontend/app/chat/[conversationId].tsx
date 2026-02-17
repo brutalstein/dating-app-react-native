@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { Buffer } from 'buffer';
 import { chatService } from '@/services/chatService';
 import { ackDelivered, connectRealtime, sendRealtimeMessage, sendTypingEvent } from '@/services/realtimeService';
-import { enqueueMessage, flushQueue, initOfflineQueue, markSent } from '@/services/chatOfflineQueue';
+import { enqueueMessage, flushQueue, getQueueSnapshot, initOfflineQueue, markSent } from '@/services/chatOfflineQueue';
 import { ChatMessage } from '@/types/chat';
 
-const statusLabel: Record<ChatMessage['status'], string> = {
-  sending: '⏳ gönderiliyor',
-  sent: '✓ gönderildi',
-  delivered: '✓✓ iletildi',
-  read: '✓✓ görüldü',
-  failed: '⚠ kuyruğa alındı / gönderilemedi',
+const statusMeta: Record<ChatMessage['status'], { label: string; color: string }> = {
+  sending: { label: 'Gönderiliyor…', color: '#fbbf24' },
+  queued: { label: 'Kuyrukta (offline)', color: '#f59e0b' },
+  sent: { label: 'Gönderildi ✓', color: '#cbd5e1' },
+  delivered: { label: 'İletildi ✓✓', color: '#93c5fd' },
+  read: { label: 'Görüldü ✓✓', color: '#34d399' },
+  failed: { label: 'Gönderilemedi', color: '#fca5a5' },
 };
 
 export default function ChatScreen() {
@@ -24,7 +26,37 @@ export default function ChatScreen() {
   const [text, setText] = useState('');
   const [myEmail, setMyEmail] = useState('');
   const [typing, setTyping] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const typingTimeout = useRef<any>(null);
+
+  const syncStatusesWithQueue = () => {
+    const queue = getQueueSnapshot();
+    if (!queue.length) return;
+
+    setMessages((prev) =>
+      prev.map((message) => {
+        const key = message.clientMessageId || message.id;
+        const queued = queue.find((item) => item.clientMessageId === key || item.id === key);
+        if (!queued) return message;
+        if (queued.status === 'failed') return { ...message, status: 'failed' };
+        if (queued.status === 'sending') return { ...message, status: 'sending' };
+        return { ...message, status: 'queued' };
+      })
+    );
+  };
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const nextOnline = Boolean(state.isConnected && state.isInternetReachable !== false);
+      setIsOnline(nextOnline);
+      if (nextOnline) {
+        flushQueue();
+      }
+      syncStatusesWithQueue();
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -57,13 +89,14 @@ export default function ChatScreen() {
           status: m.readAt ? 'read' : m.deliveredAt ? 'delivered' : 'sent',
         }))
       );
+      syncStatusesWithQueue();
       await chatService.markRead(conversationId);
     })();
   }, [conversationId]);
 
   useEffect(() => {
     connectRealtime({
-      onConnected: () => { flushQueue(); },
+      onConnected: () => { flushQueue(); syncStatusesWithQueue(); },
       onEvent: (eventType: string, payload: any) => {
         if (eventType === 'MESSAGE_RECEIVED' && payload.conversationId === conversationId) {
           setMessages((prev) => [...prev, {
@@ -76,7 +109,7 @@ export default function ChatScreen() {
             createdAt: payload.createdAt,
             deliveredAt: payload.deliveredAt,
             readAt: payload.readAt,
-            status: 'delivered',
+            status: payload.readAt ? 'read' : payload.deliveredAt ? 'delivered' : 'sent',
           }]);
           ackDelivered(conversationId, payload.id);
         }
@@ -106,6 +139,11 @@ export default function ChatScreen() {
     });
   }, [conversationId]);
 
+  useEffect(() => {
+    const interval = setInterval(syncStatusesWithQueue, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
   const onType = (v: string) => {
     setText(v);
     sendTypingEvent(conversationId, true);
@@ -113,10 +151,13 @@ export default function ChatScreen() {
     typingTimeout.current = setTimeout(() => sendTypingEvent(conversationId, false), 1200);
   };
 
-  const send = () => {
+  const send = async () => {
     const content = text.trim();
     if (!content) return;
     const clientMessageId = `${Date.now()}-${Math.random()}`;
+
+    const state = await NetInfo.fetch();
+    const online = Boolean(state.isConnected && state.isInternetReachable !== false);
 
     setMessages((prev) => [...prev, {
       id: clientMessageId,
@@ -126,38 +167,53 @@ export default function ChatScreen() {
       senderEmail: myEmail,
       content,
       createdAt: new Date().toISOString(),
-      status: 'sending',
+      status: online ? 'sending' : 'queued',
     }]);
 
     setText('');
 
-    try {
-      sendRealtimeMessage(conversationId, content, clientMessageId);
-    } catch {
-      enqueueMessage({ id: clientMessageId, conversationId, content, clientMessageId });
-      setMessages((prev) => prev.map((m) => (m.clientMessageId === clientMessageId ? { ...m, status: 'failed' } : m)));
+    if (!online) {
+      await enqueueMessage({ id: clientMessageId, conversationId, content, clientMessageId });
+      syncStatusesWithQueue();
       return;
     }
 
-    setTimeout(() => {
-      setMessages((prev) => prev.map((m) => (
-        m.clientMessageId === clientMessageId && m.status === 'sending'
-          ? { ...m, status: 'failed' }
-          : m
-      )));
-      enqueueMessage({ id: clientMessageId, conversationId, content, clientMessageId });
+    try {
+      sendRealtimeMessage(conversationId, content, clientMessageId);
+    } catch {
+      await enqueueMessage({ id: clientMessageId, conversationId, content, clientMessageId });
+      setMessages((prev) => prev.map((m) => (m.clientMessageId === clientMessageId ? { ...m, status: 'queued' } : m)));
+      return;
+    }
+
+    setTimeout(async () => {
+      let shouldQueue = false;
+      setMessages((prev) => prev.map((m) => {
+        if (m.clientMessageId === clientMessageId && m.status === 'sending') {
+          shouldQueue = true;
+          return { ...m, status: 'queued' };
+        }
+        return m;
+      }));
+
+      if (shouldQueue) {
+        await enqueueMessage({ id: clientMessageId, conversationId, content, clientMessageId });
+        syncStatusesWithQueue();
+      }
     }, 5000);
   };
 
-  const retry = (m: ChatMessage) => {
-    if (m.status !== 'failed') return;
-    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, status: 'sending' } : x)));
-    enqueueMessage({
+  const retry = async (m: ChatMessage) => {
+    if (m.status !== 'failed' && m.status !== 'queued') return;
+    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, status: 'queued' } : x)));
+    await enqueueMessage({
       id: m.clientMessageId || m.id,
       conversationId,
       content: m.content,
       clientMessageId: m.clientMessageId || `${Date.now()}`,
-    }).then(() => flushQueue());
+    });
+    await flushQueue();
+    syncStatusesWithQueue();
   };
 
   const sorted = useMemo(() => messages.slice().sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)), [messages]);
@@ -169,6 +225,12 @@ export default function ChatScreen() {
         <Text style={{ color: '#fff', marginLeft: 12, fontWeight: '700' }}>Sohbet</Text>
       </View>
 
+      {!isOnline ? (
+        <View style={{ marginHorizontal: 12, marginBottom: 6, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.6)', borderRadius: 10, padding: 8 }}>
+          <Text style={{ color: '#fbbf24', fontSize: 12 }}>Çevrimdışısın. Mesajlar kuyruğa alınır ve bağlantı gelince otomatik gönderilir.</Text>
+        </View>
+      ) : null}
+
       {typing ? <Text style={{ color: '#9ca3af', marginLeft: 16, marginBottom: 6 }}>yazıyor...</Text> : null}
 
       <FlatList
@@ -177,11 +239,17 @@ export default function ChatScreen() {
         contentContainerStyle={{ padding: 12, gap: 8 }}
         renderItem={({ item }) => {
           const mine = !!myEmail && item.senderEmail === myEmail;
+          const meta = statusMeta[item.status];
+
           return (
-            <TouchableOpacity disabled={item.status !== 'failed'} onPress={() => retry(item)} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '80%', backgroundColor: mine ? '#1d4ed8' : '#1f2937', borderRadius: 14, padding: 10 }}>
+            <TouchableOpacity
+              disabled={!mine || (item.status !== 'failed' && item.status !== 'queued')}
+              onPress={() => retry(item)}
+              style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '80%', backgroundColor: mine ? '#1d4ed8' : '#1f2937', borderRadius: 14, padding: 10 }}
+            >
               <Text style={{ color: '#fff' }}>{item.content}</Text>
-              <Text style={{ color: '#cbd5e1', fontSize: 11, marginTop: 4 }}>{statusLabel[item.status]}</Text>
-              {item.status === 'failed' ? <Text style={{ color: '#fca5a5', fontSize: 11 }}>Tekrar denemek için dokun</Text> : null}
+              {mine ? <Text style={{ color: meta.color, fontSize: 11, marginTop: 4 }}>{meta.label}</Text> : null}
+              {mine && (item.status === 'failed' || item.status === 'queued') ? <Text style={{ color: '#fca5a5', fontSize: 11 }}>Tekrar denemek için dokun</Text> : null}
             </TouchableOpacity>
           );
         }}
@@ -190,7 +258,7 @@ export default function ChatScreen() {
       <View style={{ flexDirection: 'row', padding: 10, borderTopWidth: 1, borderTopColor: '#111' }}>
         <TextInput value={text} onChangeText={onType} placeholder="Mesaj" placeholderTextColor="#6b7280" style={{ flex: 1, color: '#fff', backgroundColor: '#111', borderRadius: 12, paddingHorizontal: 12 }} />
         <TouchableOpacity onPress={send} style={{ marginLeft: 8, backgroundColor: '#FF5A5F', borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center' }}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Gönder</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{isOnline ? 'Gönder' : 'Kuyruğa Al'}</Text>
         </TouchableOpacity>
       </View>
     </View>
