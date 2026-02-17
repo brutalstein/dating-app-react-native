@@ -1,16 +1,26 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { profileService, UserProfile } from '@/services/profileService';
-import BloomBrand from '@/components/ui/bloom-brand';
-import AuroraBackground from '@/components/ui/aurora-background';
+import BloomLogo from '@/components/ui/bloom-logo';
+import OnboardingBackground from '@/components/ui/onboarding-background';
+import {
+  OnboardingCard,
+  OnboardingChoiceChip,
+  OnboardingDateField,
+  ONBOARDING_COLORS,
+  OnboardingStepHeader,
+  OnboardingStickyCTA,
+  OnboardingTextField,
+} from '@/components/ui/onboarding-controls';
 
 type GenderType = 'MALE' | 'FEMALE' | 'NON_BINARY' | 'OTHER';
+type FocusField = 'department' | 'birthDate' | 'bio' | null;
 
-const ilgiAlanlari = ['Müzik', 'Kahve', 'Sinema', 'Yürüyüş', 'Yazılım', 'Fotoğraf', 'Masa Oyunları', 'Girişimcilik', 'Spor', 'Seyahat'];
+const interestsPool = ['Müzik', 'Kahve', 'Sinema', 'Yürüyüş', 'Yazılım', 'Fotoğraf', 'Masa Oyunları', 'Girişimcilik', 'Spor', 'Seyahat'];
 const genderOptions: { label: string; value: GenderType }[] = [
   { label: 'Erkek', value: 'MALE' },
   { label: 'Kadın', value: 'FEMALE' },
@@ -19,10 +29,10 @@ const genderOptions: { label: string; value: GenderType }[] = [
 ];
 
 const stepMeta = [
-  { title: '1/4 Kimliğin', subtitle: 'Seni doğru eşleştirelim.' },
-  { title: '2/4 Vibe seçimi', subtitle: 'Ne aradığını hızlıca seç.' },
-  { title: '3/4 Mini intro', subtitle: 'Kısa ve samimi bir profil.' },
-  { title: '4/4 Foto vitrin', subtitle: 'En az 3 fotoğraf ekle.' },
+  { title: '1/4 Kimliğin', subtitle: 'Seni doğru eşleştirelim.', prompt: 'Temel bilgilerinle başlayalım.' },
+  { title: '2/4 Vibe seçimi', subtitle: 'Ne aradığını hızlıca seç.', prompt: 'Eşleşme filtresini birlikte netleştirelim.' },
+  { title: '3/4 Mini intro', subtitle: 'Kısa ve samimi bir profil.', prompt: 'İlk izlenim için profil kartını güçlendirelim.' },
+  { title: '4/4 Foto vitrin', subtitle: 'En az 3 fotoğraf ekle.', prompt: 'Profilini öne çıkaracak kareleri seç.' },
 ];
 
 const formatDate = (date: Date) => `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
@@ -46,6 +56,7 @@ export default function OnboardingScreen() {
   const [interests, setInterests] = useState<string[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [focusedField, setFocusedField] = useState<FocusField>(null);
 
   const progress = useMemo(() => ((step + 1) / stepMeta.length) * 100, [step]);
 
@@ -118,129 +129,196 @@ export default function OnboardingScreen() {
     }
   };
 
+  const helperText =
+    step === 0
+      ? 'Yaş doğrulaması için 18+ olmalısın.'
+      : step === 1
+        ? 'Bu seçimler eşleşme önerilerini belirler.'
+        : step === 2
+          ? `İlgi alanı: ${interests.length}/5`
+          : `Fotoğraf: ${photoUrls.length}/8 (min 3)`;
+
   return (
     <View className="flex-1 bg-black">
-      <AuroraBackground />
+      <OnboardingBackground />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
-        <View className="px-6 pt-14 pb-2">
-          <View className="flex-row items-center justify-between mb-2">
-            <TouchableOpacity onPress={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0} className="w-10 h-10 rounded-full bg-black/35 items-center justify-center border border-white/10">
-              <Ionicons name="chevron-back" size={20} color={step === 0 ? '#666' : '#fff'} />
-            </TouchableOpacity>
-            <Text className="text-zinc-300">%{Math.round(progress)} tamamlandı</Text>
+        <View className="px-6 pt-14 pb-1">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-3">
+              <View className="w-10 h-10 rounded-full items-center justify-center border" style={{ backgroundColor: 'rgba(0,0,0,0.45)', borderColor: 'rgba(255,255,255,0.2)' }}>
+                <Ionicons name="heart" size={16} color={ONBOARDING_COLORS.primarySoft} />
+              </View>
+              <Text className="text-white text-lg font-semibold">Bloom</Text>
+            </View>
           </View>
-          <View className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-            <View className="h-2 bg-[#22D3EE]" style={{ width: `${progress}%` }} />
-          </View>
+
+          <OnboardingStepHeader progress={progress} currentStep={step} totalSteps={stepMeta.length} />
         </View>
 
-        <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-          <View className="py-4">
-            <BloomBrand compact subtitle={stepMeta[step].subtitle} />
-            <Text className="text-white text-2xl font-bold mt-6">{stepMeta[step].title}</Text>
+        <ScrollView
+          className="flex-1 px-6"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+          contentContainerStyle={{ paddingBottom: 20 }}
+        >
+          <View className="items-center mb-5">
+            <BloomLogo size="lg" showStatusDot />
+            <Text className="text-white text-3xl font-bold mt-5">Profilini Tamamla</Text>
+            <Text className="text-zinc-300 mt-2 text-center">{stepMeta[step].subtitle}</Text>
+
+            <View className="mt-4 px-4 py-2 rounded-full border" style={{ borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(9,9,11,0.7)' }}>
+              <Text className="text-zinc-200 text-xs font-semibold tracking-wide">{stepMeta[step].title}</Text>
+            </View>
+            <Text className="text-zinc-400 text-sm mt-3">{stepMeta[step].prompt}</Text>
           </View>
 
-          {step === 0 && (
-            <View className="gap-3">
-              <TextInput value={department} onChangeText={setDepartment} placeholder="Bölümün (örn: Bilgisayar Müh.)" placeholderTextColor="#A1A1AA" className="bg-zinc-900/80 text-white h-12 px-4 rounded-xl border border-zinc-700" />
-              <TouchableOpacity onPress={() => setShowDatePicker(true)} className="bg-zinc-900/80 h-12 px-4 rounded-xl border border-zinc-700 justify-center">
-                <Text className="text-white">{birthDate ? `${birthDate.toLocaleDateString()} (${age(birthDate)} yaş)` : 'Doğum tarihi seç'}</Text>
-              </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={birthDate || new Date(2003, 0, 1)}
-                  mode="date"
-                  maximumDate={new Date()}
-                  onChange={(_, selected) => {
-                    setShowDatePicker(Platform.OS === 'ios');
-                    if (selected) setBirthDate(selected);
-                  }}
+          <OnboardingCard>
+            {step === 0 && (
+              <View>
+                <OnboardingTextField
+                  label="Bölüm"
+                  value={department}
+                  onChangeText={setDepartment}
+                  onFocus={() => setFocusedField('department')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="Bölümün (örn: Bilgisayar Müh.)"
+                  placeholderTextColor="#8A8A8F"
+                  focused={focusedField === 'department'}
+                  returnKeyType="done"
                 />
-              )}
-            </View>
-          )}
 
-          {step === 1 && (
-            <View className="gap-4">
-              <View>
-                <Text className="text-zinc-300 mb-2">Cinsiyetin</Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {genderOptions.map((g) => (
-                    <TouchableOpacity key={g.value} onPress={() => setGender(g.value)} className={`px-4 py-2 rounded-full border ${gender === g.value ? 'bg-[#A78BFA] border-[#A78BFA]' : 'bg-zinc-900/80 border-zinc-700'}`}>
-                      <Text className="text-white">{g.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-              <View>
-                <Text className="text-zinc-300 mb-2">Kimlerle tanışmak istersin?</Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {genderOptions.map((g) => (
-                    <TouchableOpacity key={`p-${g.value}`} onPress={() => setPreference(g.value)} className={`px-4 py-2 rounded-full border ${preference === g.value ? 'bg-[#F472B6] border-[#F472B6]' : 'bg-zinc-900/80 border-zinc-700'}`}>
-                      <Text className="text-white">{g.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
-          )}
+                <OnboardingDateField
+                  label="Doğum Tarihi"
+                  onPress={() => {
+                    setFocusedField('birthDate');
+                    setShowDatePicker(true);
+                  }}
+                  focused={focusedField === 'birthDate'}
+                  value={birthDate ? `${birthDate.toLocaleDateString()} (${age(birthDate)} yaş)` : 'Doğum tarihi seç'}
+                />
 
-          {step === 2 && (
-            <View className="gap-4">
-              <TextInput
-                value={bio}
-                onChangeText={setBio}
-                multiline
-                maxLength={180}
-                placeholder="Seni anlatan kısa bir cümle yaz..."
-                placeholderTextColor="#A1A1AA"
-                className="bg-zinc-900/80 text-white min-h-[100px] px-4 py-3 rounded-xl border border-zinc-700"
-                textAlignVertical="top"
-              />
-              <Text className="text-zinc-500 text-xs">{bio.length}/180</Text>
-
-              <Text className="text-zinc-300">İlgi alanı seç (2-5)</Text>
-              <View className="flex-row flex-wrap gap-2">
-                {ilgiAlanlari.map((item) => {
-                  const selected = interests.includes(item);
-                  return (
-                    <TouchableOpacity key={item} onPress={() => toggleInterest(item)} className={`px-4 py-2 rounded-full border ${selected ? 'bg-cyan-500 border-cyan-500' : 'bg-zinc-900/80 border-zinc-700'}`}>
-                      <Text className="text-white">{item}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          )}
-
-          {step === 3 && (
-            <View>
-              <Text className="text-zinc-300 mb-3">Fotoğraf ekle (3-8)</Text>
-              <View className="flex-row flex-wrap gap-3">
-                {photoUrls.map((uri, i) => (
-                  <View key={`${i}-${uri}`} className="relative">
-                    <Image source={{ uri }} style={{ width: 88, height: 118, borderRadius: 12 }} />
-                    <TouchableOpacity onPress={() => setPhotoUrls((prev) => prev.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-rose-500 rounded-full w-6 h-6 items-center justify-center">
-                      <Ionicons name="close" color="#fff" size={14} />
-                    </TouchableOpacity>
+                {showDatePicker && (
+                  <View className="mt-3 rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(82,82,91,0.9)', backgroundColor: 'rgba(24,24,27,0.98)' }}>
+                    <DateTimePicker
+                      value={birthDate || new Date(2003, 0, 1)}
+                      mode="date"
+                      maximumDate={new Date()}
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(_, selected) => {
+                        if (Platform.OS !== 'ios') setShowDatePicker(false);
+                        if (selected) setBirthDate(selected);
+                        setFocusedField(null);
+                      }}
+                    />
                   </View>
-                ))}
-
-                {photoUrls.length < 8 && (
-                  <TouchableOpacity onPress={selectPhoto} className="w-[88px] h-[118px] rounded-xl border border-dashed border-zinc-600 items-center justify-center bg-zinc-900/70">
-                    <Ionicons name="add" size={24} color="#22D3EE" />
-                  </TouchableOpacity>
                 )}
               </View>
-            </View>
-          )}
+            )}
+
+            {step === 1 && (
+              <View className="gap-5">
+                <View>
+                  <Text className="text-zinc-200 text-sm font-semibold mb-2">Cinsiyetin</Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {genderOptions.map((g) => (
+                      <OnboardingChoiceChip key={g.value} label={g.label} selected={gender === g.value} onPress={() => setGender(g.value)} tone="secondary" />
+                    ))}
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-zinc-200 text-sm font-semibold mb-2">Kimlerle tanışmak istersin?</Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {genderOptions.map((g) => (
+                      <OnboardingChoiceChip
+                        key={`p-${g.value}`}
+                        label={g.label}
+                        selected={preference === g.value}
+                        onPress={() => setPreference(g.value)}
+                        tone="accent"
+                      />
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {step === 2 && (
+              <View>
+                <Text className="text-zinc-200 text-sm font-semibold mb-2">Kendini Anlat</Text>
+                <View
+                  className="rounded-2xl px-3 border"
+                  style={{
+                    backgroundColor: 'rgba(24,24,27,0.9)',
+                    borderColor: focusedField === 'bio' ? ONBOARDING_COLORS.primary : ONBOARDING_COLORS.neutralBorder,
+                  }}
+                >
+                  <TextInput
+                    value={bio}
+                    onChangeText={setBio}
+                    onFocus={() => setFocusedField('bio')}
+                    onBlur={() => setFocusedField(null)}
+                    multiline
+                    maxLength={180}
+                    placeholder="Seni anlatan kısa bir cümle yaz..."
+                    placeholderTextColor="#8A8A8F"
+                    className="text-white min-h-[108px] py-3"
+                    textAlignVertical="top"
+                  />
+                </View>
+                <Text className="text-zinc-500 text-xs self-end mt-1">{bio.length}/180</Text>
+
+                <Text className="text-zinc-200 text-sm font-semibold mt-4 mb-2">İlgi alanı seç (2-5)</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {interestsPool.map((item) => {
+                    const selected = interests.includes(item);
+                    return (
+                      <OnboardingChoiceChip key={item} label={item} selected={selected} onPress={() => toggleInterest(item)} compact />
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {step === 3 && (
+              <View>
+                <Text className="text-zinc-200 text-sm font-semibold mb-3">Fotoğraf ekle (3-8)</Text>
+                <View className="flex-row flex-wrap gap-3">
+                  {photoUrls.map((uri, i) => (
+                    <View key={`${i}-${uri}`} className="relative">
+                      <Image source={{ uri }} style={{ width: 90, height: 122, borderRadius: 16 }} />
+                      <View className="absolute bottom-2 left-2 rounded-full px-2 py-1" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+                        <Text className="text-white text-[10px]">#{i + 1}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setPhotoUrls((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="absolute -top-2 -right-2 w-7 h-7 rounded-full items-center justify-center"
+                        style={{ backgroundColor: ONBOARDING_COLORS.primary }}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Ionicons name="close" color="#fff" size={14} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+
+                  {photoUrls.length < 8 && (
+                    <TouchableOpacity
+                      onPress={selectPhoto}
+                      className="w-[90px] h-[122px] rounded-2xl border border-dashed items-center justify-center"
+                      style={{ borderColor: ONBOARDING_COLORS.primarySoft, backgroundColor: 'rgba(39,39,42,0.78)' }}
+                      hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                    >
+                      <Ionicons name="add" size={24} color={ONBOARDING_COLORS.primarySoft} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+          </OnboardingCard>
         </ScrollView>
 
-        <View className="px-6 pb-8 pt-3">
-          <TouchableOpacity onPress={next} disabled={!validStep() || saving} className={`h-12 rounded-xl items-center justify-center ${!validStep() || saving ? 'bg-zinc-700' : 'bg-[#22D3EE]'}`}>
-            <Text className="text-black font-bold">{saving ? 'Kaydediliyor...' : step === 3 ? 'Profili Tamamla' : 'Devam'}</Text>
-          </TouchableOpacity>
-        </View>
+        <OnboardingStickyCTA label={step === 3 ? 'Profili Tamamla' : 'Devam Et'} disabled={!validStep()} loading={saving} onPress={next} helperText={helperText} />
       </KeyboardAvoidingView>
     </View>
   );
