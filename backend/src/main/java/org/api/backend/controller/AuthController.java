@@ -2,6 +2,7 @@ package org.api.backend.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.api.backend.dto.OnboardingRequest;
 import org.api.backend.dto.PhotoUpdateRequest;
 import org.api.backend.entity.User;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -32,10 +34,9 @@ public class AuthController {
             abuseProtectionService.clearAuthFailures(ip, email);
             return ResponseEntity.ok(Map.of("message", message));
         } catch (TooManyRequestsException e) {
-            throw e;
+            return handleBackoff("register", ip, email, e);
         } catch (Exception e) {
-            abuseProtectionService.registerAuthFailure(ip, email);
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return handleAuthFailure("register", ip, email, e);
         }
     }
 
@@ -50,10 +51,9 @@ public class AuthController {
             abuseProtectionService.clearAuthFailures(ip, email);
             return ResponseEntity.ok(Map.of("token", token, "message", "Email verified successfully."));
         } catch (TooManyRequestsException e) {
-            throw e;
+            return handleBackoff("verify", ip, email, e);
         } catch (Exception e) {
-            abuseProtectionService.registerAuthFailure(ip, email);
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return handleAuthFailure("verify", ip, email, e);
         }
     }
 
@@ -68,10 +68,9 @@ public class AuthController {
             abuseProtectionService.clearAuthFailures(ip, email);
             return ResponseEntity.ok(Map.of("token", token, "message", "Login successful."));
         } catch (TooManyRequestsException e) {
-            throw e;
+            return handleBackoff("login", ip, email, e);
         } catch (Exception e) {
-            abuseProtectionService.registerAuthFailure(ip, email);
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return handleAuthFailure("login", ip, email, e);
         }
     }
 
@@ -85,10 +84,9 @@ public class AuthController {
             abuseProtectionService.clearAuthFailures(ip, email);
             return ResponseEntity.ok(Map.of("message", "A new verification code has been sent."));
         } catch (TooManyRequestsException e) {
-            throw e;
+            return handleBackoff("resend-code", ip, email, e);
         } catch (Exception e) {
-            abuseProtectionService.registerAuthFailure(ip, email);
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            return handleAuthFailure("resend-code", ip, email, e);
         }
     }
 
@@ -123,6 +121,17 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
+    }
+
+    private ResponseEntity<?> handleBackoff(String action, String ip, String email, TooManyRequestsException e) {
+        log.warn("event=auth_backoff_blocked action={} ip={} email={} retryAfterSeconds={}", action, ip, email, e.getRetryAfterSeconds());
+        throw e;
+    }
+
+    private ResponseEntity<?> handleAuthFailure(String action, String ip, String email, Exception e) {
+        abuseProtectionService.registerAuthFailure(ip, email);
+        log.warn("event=auth_failed action={} ip={} email={} error={}", action, ip, email, e.getMessage());
+        return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
     }
 
     private String resolveClientIp(HttpServletRequest request) {

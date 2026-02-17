@@ -98,7 +98,11 @@ class AuthControllerIntegrationTest {
                         List.of("Music", "Travel"),
                         List.of("https://cdn/a.jpg", "https://cdn/b.jpg", "https://cdn/c.jpg"),
                         true,
-                        true
+                        true,
+                        "USER",
+                        "PUBLIC",
+                        "MATCHES_ONLY",
+                        "EVERYONE"
                 ));
 
         ResponseEntity<?> response = controller.completeOnboarding("Bearer valid-token", request);

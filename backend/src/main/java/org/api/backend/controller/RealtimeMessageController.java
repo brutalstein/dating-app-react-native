@@ -1,6 +1,7 @@
 package org.api.backend.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.api.backend.dto.DeliveryAckRequest;
 import org.api.backend.dto.ExploreHubResponse;
 import org.api.backend.dto.MessageResponse;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
 
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 public class RealtimeMessageController {
@@ -24,8 +26,13 @@ public class RealtimeMessageController {
     @MessageMapping("/chat.send")
     @SendToUser("/queue/ack")
     public MessageResponse send(@Payload SendMessageRequest request, Principal principal) {
-        var user = userRepository.findByEmail(principal.getName()).orElseThrow();
-        return socialService.sendMessage(user, request.conversationId(), request.content(), request.clientMessageId());
+        try {
+            var user = userRepository.findByEmail(principal.getName()).orElseThrow();
+            return socialService.sendMessage(user, request.conversationId(), request.content(), request.clientMessageId());
+        } catch (Exception e) {
+            log.error("event=message_send_failed actor={} conversationId={} error={}", principal != null ? principal.getName() : "unknown", request.conversationId(), e.getMessage());
+            throw e;
+        }
     }
 
     @MessageMapping("/chat.delivered")

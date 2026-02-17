@@ -5,11 +5,16 @@ import { useEffect, useState } from 'react';
 import api, { sanitizeToken } from '@/api/config';
 import { ExploreHubProvider } from '@/store/exploreHub/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { initMonitoring } from '@/services/monitoring';
 
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    initMonitoring();
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {

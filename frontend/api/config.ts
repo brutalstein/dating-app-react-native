@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
+import { captureException } from '@/services/monitoring';
 
 const INVALID_TOKEN_VALUES = new Set(['null', 'undefined', '']);
 
@@ -33,25 +34,39 @@ export const API_BASE_URL =
 export const WS_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
 
 const api = axios.create({
-    baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL,
 });
 
 api.interceptors.request.use(
-    async (config) => {
-        const storedToken = await SecureStore.getItemAsync('token');
-        const token = sanitizeToken(storedToken);
+  async (config) => {
+    const storedToken = await SecureStore.getItemAsync('token');
+    const token = sanitizeToken(storedToken);
 
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        } else if (storedToken) {
-            await SecureStore.deleteItemAsync('token');
-        }
-
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else if (storedToken) {
+      await SecureStore.deleteItemAsync('token');
     }
+
+    return config;
+  },
+  (error) => {
+    captureException(error, { scope: 'http_request_interceptor' });
+    return Promise.reject(error);
+  }
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    captureException(error, {
+      scope: 'http_response_interceptor',
+      method: error?.config?.method,
+      url: error?.config?.url,
+      status: error?.response?.status,
+    });
+    return Promise.reject(error);
+  }
 );
 
 export default api;

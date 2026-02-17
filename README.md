@@ -159,6 +159,7 @@ Header: `Retry-After`.
 - Runbook: `docs/runbook.md`
 - E2E runbook: `docs/e2e-runbook.md`
 - DB migration/disaster runbook: `docs/db-migration-disaster-runbook.md`
+- CI/CD + Observability: `docs/ci-observability.md`
 
 ### DB backup/restore scriptleri (Windows)
 

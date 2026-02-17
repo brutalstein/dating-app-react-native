@@ -1,6 +1,7 @@
 package org.api.backend.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.api.backend.config.RateLimitProperties;
 import org.springframework.stereotype.Service;
 
@@ -9,6 +10,7 @@ import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AbuseProtectionService {
@@ -73,6 +75,7 @@ public class AbuseProtectionService {
             long blockSeconds = (long) properties.getAuthFailureBaseBlockSeconds() * (1L << Math.min(exponent, 10));
             blockSeconds = Math.min(blockSeconds, properties.getAuthFailureMaxBlockSeconds());
             state.blockUntilEpochSeconds = Instant.now().getEpochSecond() + blockSeconds;
+            log.warn("event=auth_fail_spike_detected ip={} identifier={} failureCount={} blockSeconds={}", ip, safeIdentifier(identifier), state.failureCount, blockSeconds);
         }
     }
 
