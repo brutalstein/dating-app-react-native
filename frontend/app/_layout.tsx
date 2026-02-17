@@ -56,7 +56,7 @@ export default function RootLayout() {
         }
       } catch (error: any) {
         const status = error?.response?.status;
-        const isAuthFailure = status === 400 || status === 401;
+        const isAuthFailure = status === 400 || status === 401 || status === 403;
 
         if (isAuthFailure) {
           await SecureStore.deleteItemAsync('token');

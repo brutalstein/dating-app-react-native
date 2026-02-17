@@ -30,12 +30,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        String token = extractBearerToken(authHeader);
+        if (token == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = authHeader.substring(7);
         if (!jwtService.isTokenValid(token) || SecurityContextHolder.getContext().getAuthentication() != null) {
             filterChain.doFilter(request, response);
             return;
@@ -62,5 +62,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         filterChain.doFilter(request, response);
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null) {
+            return null;
+        }
+
+        String trimmed = authorizationHeader.trim();
+        if (trimmed.length() < 7 || !trimmed.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+
+        String token = trimmed.substring(7).trim();
+        return token.isBlank() ? null : token;
     }
 }

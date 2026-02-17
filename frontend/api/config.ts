@@ -15,12 +15,17 @@ export const sanitizeToken = (rawToken?: string | null) => {
     return null;
   }
 
-  const normalized = token.toLowerCase();
+  const withoutBearer = token.replace(/^bearer\s+/i, '').trim();
+  if (!withoutBearer) {
+    return null;
+  }
+
+  const normalized = withoutBearer.toLowerCase();
   if (INVALID_TOKEN_VALUES.has(normalized)) {
     return null;
   }
 
-  return token.startsWith('Bearer ') ? token.slice(7).trim() : token;
+  return withoutBearer;
 };
 
 const DEFAULT_API_BASE_URL = 'http://192.168.1.171:8080/api';

@@ -45,6 +45,7 @@ public class AuthService {
     private final PendingRegistrationRepository pendingRegistrationRepository;
     private final UserPreferenceProfileRepository userPreferenceProfileRepository;
     private final JavaMailSender mailSender;
+    private final ExperimentService experimentService;
 
     private String normalizeEmail(String email) {
         if (email == null) {
@@ -199,6 +200,7 @@ public class AuthService {
 
         userRepository.save(user);
         syncPreferenceProfileFromOnboarding(user);
+        experimentService.assign(user, "onboarding_flow_v1", true);
         return toUserProfileResponse(user);
     }
 
@@ -217,12 +219,12 @@ public class AuthService {
     }
 
     private User getAuthenticatedUser(String authorizationHeader) {
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+        String token = extractBearerToken(authorizationHeader);
+        if (token == null) {
             throw new RuntimeException("Authorization token is missing.");
         }
 
-        String token = authorizationHeader.substring(7).trim();
-        if (token.isBlank() || !jwtService.isTokenValid(token)) {
+        if (!jwtService.isTokenValid(token)) {
             throw new RuntimeException("Authorization token is invalid or expired.");
         }
 
@@ -230,6 +232,20 @@ public class AuthService {
 
         return userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new RuntimeException("Authenticated user could not be found."));
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null) {
+            return null;
+        }
+
+        String trimmed = authorizationHeader.trim();
+        if (trimmed.length() < 7 || !trimmed.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+
+        String token = trimmed.substring(7).trim();
+        return token.isBlank() ? null : token;
     }
 
     private UserProfileResponse toUserProfileResponse(User user) {
@@ -260,7 +276,11 @@ public class AuthService {
                 interests,
                 photoUrls,
                 user.getOnboardingCompleted(),
-                user.getPushEnabled()
+                user.getPushEnabled(),
+                user.getRole().name(),
+                user.getProfileVisibility().name(),
+                user.getMessageRequestPolicy().name(),
+                user.getLastSeenVisibility().name()
         );
     }
 

@@ -1,6 +1,6 @@
 import { Client } from '@stomp/stompjs';
 import * as SecureStore from 'expo-secure-store';
-import { WS_BASE_URL } from '@/api/config';
+import { WS_BASE_URL, sanitizeToken } from '@/api/config';
 
 let client: Client | null = null;
 let ackListeners: Array<(payload: any) => void> = [];
@@ -12,8 +12,14 @@ type RealtimeCallbacks = {
 };
 
 export async function connectRealtime(callbacks: RealtimeCallbacks | ((eventType: string, payload: any) => void)) {
-  const token = await SecureStore.getItemAsync('token');
-  if (!token) return;
+  const storedToken = await SecureStore.getItemAsync('token');
+  const token = sanitizeToken(storedToken);
+  if (!token) {
+    if (storedToken) {
+      await SecureStore.deleteItemAsync('token');
+    }
+    return;
+  }
 
   if (client?.active) return;
 
