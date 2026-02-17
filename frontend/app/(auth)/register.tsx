@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { authService } from '@/services/authService';
+import AuroraBackground from '@/components/ui/aurora-background';
+import BloomBrand from '@/components/ui/bloom-brand';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -18,120 +20,77 @@ export default function RegisterScreen() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!firstName.trim() || !lastName.trim() || !normalizedEmail || !password || !confirmPassword) {
-      Alert.alert('Validation Error', 'Please complete all required fields.');
+      Alert.alert('Eksik Bilgi', 'Lütfen tüm alanları doldur.');
       return;
     }
 
     if (!normalizedEmail.endsWith('.edu.tr')) {
-      Alert.alert('Validation Error', 'Only .edu.tr university email addresses are accepted.');
+      Alert.alert('Geçersiz E-posta', 'Sadece .edu.tr uzantılı e-posta kabul edilir.');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Validation Error', 'Passwords do not match.');
+      Alert.alert('Şifre Hatası', 'Şifreler uyuşmuyor.');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await authService.register({
+      await authService.register({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: normalizedEmail,
-        password
+        password,
       });
 
-      Alert.alert('Registration Successful', response.message || 'Please verify your email to activate your account.');
+      Alert.alert('Kayıt Alındı', 'Doğrulama kodunu e-postana gönderdik.');
       router.push(`/(auth)/verify?email=${encodeURIComponent(normalizedEmail)}` as any);
     } catch (error: any) {
-      Alert.alert('Registration Failed', error?.message || 'We could not complete your registration. Please try again.');
+      Alert.alert('Kayıt Başarısız', error?.message || 'Kayıt sırasında hata oluştu.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-black">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-6 pt-20">
-        <View className="items-center mb-10">
-          <View className="w-20 h-20 bg-zinc-900 rounded-3xl items-center justify-center mb-4">
-            <Ionicons name="flame" size={40} color="#FF5A5F" />
-          </View>
-          <Text className="text-white text-3xl font-bold">Bloom&#39;a Katıl</Text>
-          <Text className="text-zinc-500 mt-2 text-center">Sadece üniversitelilere özel topluluğa adım at.</Text>
-        </View>
-
-        <View className="bg-zinc-900 p-6 rounded-3xl shadow-xl">
-          {/* First and last name side by side */}
-          <View className="flex-row gap-2 mb-4">
-            <TextInput 
-              placeholder="Ad" 
-              placeholderTextColor="#666" 
-              className="flex-1 bg-zinc-800 text-white h-14 px-4 rounded-xl border border-zinc-700"
-              value={firstName}
-              onChangeText={setFirstName}
-            />
-            <TextInput 
-              placeholder="Soyad" 
-              placeholderTextColor="#666" 
-              className="flex-1 bg-zinc-800 text-white h-14 px-4 rounded-xl border border-zinc-700"
-              value={lastName}
-              onChangeText={setLastName}
-            />
+    <View className="flex-1 bg-black">
+      <AuroraBackground />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+        <ScrollView className="px-6" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
+          <View className="mb-8">
+            <BloomBrand subtitle="Üniversite topluluğuna güvenli giriş." compact />
           </View>
 
-          {/* Email */}
-          <TextInput 
-            placeholder="Üniversite Maili (.edu.tr)" 
-            placeholderTextColor="#666" 
-            autoCapitalize="none"
-            keyboardType="email-address"
-            className="bg-zinc-800 text-white h-14 px-4 rounded-xl border border-zinc-700 mb-4"
-            value={email}
-            onChangeText={setEmail}
-          />
+          <View className="bg-black/45 border border-white/15 rounded-3xl p-5">
+            <View className="flex-row gap-2 mb-3">
+              <TextInput value={firstName} onChangeText={setFirstName} placeholder="Ad" placeholderTextColor="#A1A1AA" className="flex-1 bg-zinc-900/80 text-white h-12 px-4 rounded-xl border border-zinc-700" />
+              <TextInput value={lastName} onChangeText={setLastName} placeholder="Soyad" placeholderTextColor="#A1A1AA" className="flex-1 bg-zinc-900/80 text-white h-12 px-4 rounded-xl border border-zinc-700" />
+            </View>
 
-          {/* Password */}
-          <View className="bg-zinc-800 h-14 px-4 rounded-xl border border-zinc-700 mb-4 flex-row items-center">
-            <TextInput 
-              placeholder="Şifre" 
-              placeholderTextColor="#666" 
-              secureTextEntry={!showPassword}
-              className="flex-1 text-white"
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#666" />
+            <TextInput value={email} onChangeText={setEmail} placeholder="Üniversite e-postası" placeholderTextColor="#A1A1AA" autoCapitalize="none" className="bg-zinc-900/80 text-white h-12 px-4 rounded-xl border border-zinc-700 mb-3" />
+
+            <View className="bg-zinc-900/80 h-12 px-4 rounded-xl border border-zinc-700 mb-3 flex-row items-center">
+              <TextInput value={password} onChangeText={setPassword} placeholder="Şifre" placeholderTextColor="#A1A1AA" secureTextEntry={!showPassword} className="flex-1 text-white" />
+              <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)}>
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={18} color="#D4D4D8" />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Şifre tekrarı" placeholderTextColor="#A1A1AA" secureTextEntry={!showPassword} className="bg-zinc-900/80 text-white h-12 px-4 rounded-xl border border-zinc-700 mb-5" />
+
+            <TouchableOpacity onPress={handleRegister} disabled={loading} className={`h-12 rounded-xl items-center justify-center ${loading ? 'bg-zinc-700' : 'bg-[#F472B6]'}`}>
+              <Text className="text-white font-bold">{loading ? 'Kaydediliyor...' : 'Hesap Oluştur'}</Text>
             </TouchableOpacity>
           </View>
 
-          <TextInput 
-            placeholder="Şifreyi Onayla" 
-            placeholderTextColor="#666" 
-            secureTextEntry={!showPassword}
-            className="bg-zinc-800 text-white h-14 px-4 rounded-xl border border-zinc-700 mb-6"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
-
-          <TouchableOpacity 
-            onPress={handleRegister}
-            disabled={loading}
-            className={`h-14 rounded-xl items-center justify-center flex-row gap-2 ${loading ? 'bg-zinc-700' : 'bg-[#FF5A5F]'}`}
-          >
-            <Text className="text-white font-bold text-lg">{loading ? 'Kaydediliyor...' : 'Hesap Oluştur'}</Text>
-            {!loading && <Ionicons name="arrow-forward" size={20} color="white" />}
-          </TouchableOpacity>
-        </View>
-
-        <View className="flex-row justify-center mt-8">
-          <Text className="text-zinc-500 text-base">Zaten üye misin? </Text>
-          <TouchableOpacity onPress={() => router.navigate('/(auth)/login' as any)}>
-            <Text className="text-[#FF5A5F] font-bold text-base">Giriş Yap</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View className="flex-row justify-center mt-6">
+            <Text className="text-zinc-300">Zaten hesabın var mı? </Text>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/login' as any)}>
+              <Text className="text-cyan-300 font-semibold">Giriş Yap</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }

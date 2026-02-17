@@ -6,6 +6,8 @@
   - `app/(auth)` authentication flow (login/register/verify)
   - `app/onboarding.tsx` onboarding wizard
   - `app/(tabs)` authenticated tab screens (explore/profile/settings)
+  - `components/ui/bloom-brand.tsx` Bloom brand component
+  - `components/ui/aurora-background.tsx` animated procedural background
   - `api/` axios client and API base URL resolution
   - `services/` domain services (`authService`, `profileService`)
 - `backend/` → Spring Boot REST API
@@ -14,6 +16,13 @@
   - `entity/` JPA entities
   - `repos/` repository layer
   - `dto/` request/response contracts
+
+## UX/UI Notes (2026-02)
+
+- Login/Register ekranları Bloom marka diliyle yeniden tasarlandı.
+- Eski GIF temelli arka plan yerine **procedural (kodla üretilen) animasyonlu aurora arka planı** kullanıldı.
+- Bu yaklaşımda dış görsel asset kaynağı yoktur; telif riski düşüktür ve mobilde daha hafiftir.
+- Onboarding kısa, adımlı ve üniversite kullanıcı senaryosuna odaklı hale getirildi.
 
 ## Quality Commands
 
@@ -46,6 +55,6 @@ cd backend
 ## Branch/Commit Recommendation
 
 Use focused commits:
-1. `chore(frontend): add explicit quality scripts and normalize comment language`
-2. `chore(backend): remove duplicate security dependency and normalize comment language`
-3. `docs: add monorepo architecture and runbook`
+1. `feat(frontend): redesign bloom auth and onboarding experience`
+2. `chore(backend): trim pom dependencies and keep only required starters`
+3. `docs: document ui/background licensing approach and runbook`
