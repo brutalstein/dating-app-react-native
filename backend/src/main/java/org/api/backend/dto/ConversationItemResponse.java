@@ -9,6 +9,8 @@ public record ConversationItemResponse(
         UUID otherUserId,
         String otherUserName,
         String otherUserAvatar,
+        boolean online,
+        LocalDateTime lastSeenAt,
         String lastMessage,
         LocalDateTime lastMessageAt,
         long unreadCount

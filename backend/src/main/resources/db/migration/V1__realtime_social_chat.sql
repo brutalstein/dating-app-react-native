@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS messages (
     conversation_id UUID NOT NULL REFERENCES conversations(id),
     sender_id UUID NOT NULL REFERENCES users(id),
     content TEXT NOT NULL,
+    client_message_id VARCHAR(128) NULL,
     created_at TIMESTAMP NOT NULL,
+    delivered_at TIMESTAMP NULL,
     read_at TIMESTAMP NULL
 );
 

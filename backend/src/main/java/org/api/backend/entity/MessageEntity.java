@@ -27,8 +27,12 @@ public class MessageEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    private String clientMessageId;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    private LocalDateTime deliveredAt;
 
     private LocalDateTime readAt;
 }

@@ -35,7 +35,7 @@ export default function MessagesScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: MessageThread }) => (
-      <TouchableOpacity style={hubStyles.card} onPress={() => markThreadAsRead(item.id)} activeOpacity={0.9}>
+      <TouchableOpacity style={hubStyles.card} onPress={() => { markThreadAsRead(item.id); router.push(`/chat/${item.id}` as any); }} activeOpacity={0.9}>
         <View>
           <Avatar name={item.user.fullName} uri={item.user.avatarUrl} />
           {item.isOnline && (
@@ -59,6 +59,7 @@ export default function MessagesScreen() {
             <Text style={hubStyles.title}>{item.user.fullName}</Text>
             {item.isPinned && <Ionicons name="bookmark" size={13} color="#FF5A5F" />}
           </View>
+          <Text style={[hubStyles.subtitle, { fontSize: 11 }]}>{item.isOnline ? 'online' : item.lastSeenAt ? `son görülme ${formatRelativeTime(item.lastSeenAt)}` : 'offline'}</Text>
           <Text
             style={[hubStyles.subtitle, { color: item.unreadCount > 0 ? '#d1d5db' : '#9ca3af' }]}
             numberOfLines={1}>
@@ -75,7 +76,7 @@ export default function MessagesScreen() {
         </View>
       </TouchableOpacity>
     ),
-    [markThreadAsRead]
+    [markThreadAsRead, router]
   );
 
   return (

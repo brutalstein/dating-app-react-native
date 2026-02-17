@@ -6,6 +6,7 @@ import org.api.backend.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface MessageRepository extends JpaRepository<MessageEntity, UUID> {
@@ -13,4 +14,5 @@ public interface MessageRepository extends JpaRepository<MessageEntity, UUID> {
     MessageEntity findTopByConversationOrderByCreatedAtDesc(Conversation conversation);
     long countByConversationAndSenderNotAndReadAtIsNull(Conversation conversation, User sender);
     List<MessageEntity> findByConversationAndSenderNotAndReadAtIsNull(Conversation conversation, User sender);
+    Optional<MessageEntity> findByConversationAndSenderAndClientMessageId(Conversation conversation, User sender, String clientMessageId);
 }

@@ -14,6 +14,7 @@ export interface MessageThread {
   lastMessageAt: string;
   unreadCount: number;
   isOnline?: boolean;
+  lastSeenAt?: string;
   isPinned?: boolean;
 }
 

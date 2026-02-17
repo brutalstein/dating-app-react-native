@@ -90,13 +90,18 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
   );
 
   useEffect(() => {
-    connectRealtime((eventType, payload) => {
-      if (eventType === 'EXPLORE_HUB_UPDATED' || eventType === 'LIKE_RECEIVED' || eventType === 'MATCH_CREATED') {
-        dispatch({ type: 'APPLY_REALTIME_PAYLOAD', payload: { data: payload } });
-      }
+    connectRealtime({
+      onEvent: (eventType, payload) => {
+        if (eventType === 'EXPLORE_HUB_UPDATED' || eventType === 'LIKE_RECEIVED' || eventType === 'MATCH_CREATED') {
+          dispatch({ type: 'APPLY_REALTIME_PAYLOAD', payload: { data: payload } });
+        }
+      },
+      onConnected: () => {
+        void load(true);
+      },
     });
     return () => disconnectRealtime();
-  }, []);
+  }, [load]);
 
   const value = useMemo(
     () => ({ state, load, refresh, invalidate, markNotificationAsRead, markThreadAsRead }),

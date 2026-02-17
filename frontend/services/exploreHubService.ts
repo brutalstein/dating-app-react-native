@@ -15,7 +15,19 @@ export const exploreHubService = {
   async fetchExploreHub(): Promise<ExploreHubPayload> {
     const { data } = await api.get('/explore-hub');
     const payload: ExploreHubPayload = {
-      messages: data.messages ?? [],
+      messages: (data.messages ?? []).map((m: any) => ({
+        id: m.conversationId,
+        user: {
+          id: m.otherUserId,
+          fullName: m.otherUserName,
+          avatarUrl: m.otherUserAvatar,
+        },
+        lastMessage: m.lastMessage,
+        lastMessageAt: m.lastMessageAt,
+        unreadCount: m.unreadCount,
+        isOnline: m.online,
+        lastSeenAt: m.lastSeenAt,
+      })),
       notifications: (data.notifications ?? []).map((n: any) => ({
         id: n.id,
         type: String(n.type || 'system').toLowerCase(),
@@ -44,7 +56,7 @@ export const exploreHubService = {
     await api.post(`/conversations/${id}/read`);
   },
 
-  async markNotificationAsRead(_id: string): Promise<void> {
-    return;
+  async markNotificationAsRead(id: string): Promise<void> {
+    await api.post(`/notifications/${id}/read`);
   },
 };

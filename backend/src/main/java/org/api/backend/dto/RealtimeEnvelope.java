@@ -1,3 +1,11 @@
 package org.api.backend.dto;
 
-public record RealtimeEnvelope(String eventType, Object payload) {}
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+public record RealtimeEnvelope(
+        UUID eventId,
+        String eventType,
+        LocalDateTime occurredAt,
+        Object payload
+) {}

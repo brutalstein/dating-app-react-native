@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -22,6 +23,7 @@ public class SocialService {
     private final NotificationRepository notificationRepository;
     private final ActivityRepository activityRepository;
     private final RealtimePushService realtimePushService;
+    private final PresenceService presenceService;
 
     @Transactional
     public LikeResponse sendLike(User sender, UUID targetUserId) {
@@ -84,7 +86,8 @@ public class SocialService {
             LocalDateTime lastAt = last != null ? last.getCreatedAt() : c.getCreatedAt();
             long unread = messageRepository.countByConversationAndSenderNotAndReadAtIsNull(c, user);
             return new ConversationItemResponse(c.getId(), match.getId(), other.getId(), other.getFirstName(),
-                    other.getPhotoUrls().isEmpty() ? null : other.getPhotoUrls().get(0), lastMessage, lastAt, unread);
+                    other.getPhotoUrls().isEmpty() ? null : other.getPhotoUrls().get(0),
+                    presenceService.isOnline(other), other.getLastSeen(), lastMessage, lastAt, unread);
         }).filter(java.util.Objects::nonNull).toList();
     }
 
@@ -98,17 +101,28 @@ public class SocialService {
     }
 
     @Transactional
-    public MessageResponse sendMessage(User user, UUID conversationId, String content) {
+    public MessageResponse sendMessage(User user, UUID conversationId, String content, String clientMessageId) {
         if (content == null || content.trim().isBlank()) throw new RuntimeException("Message empty");
 
         Conversation conversation = getAuthorizedConversation(user, conversationId);
         MatchEntity match = conversation.getMatch();
         User recipient = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
 
+        if (clientMessageId != null && !clientMessageId.isBlank()) {
+            var existing = messageRepository.findByConversationAndSenderAndClientMessageId(conversation, user, clientMessageId.trim());
+            if (existing.isPresent()) {
+                return toMessageResponse(existing.get());
+            }
+        }
+
         MessageEntity message = new MessageEntity();
         message.setConversation(conversation);
         message.setSender(user);
         message.setContent(content.trim());
+        message.setClientMessageId(clientMessageId == null ? null : clientMessageId.trim());
+        if (presenceService.isOnline(recipient)) {
+            message.setDeliveredAt(LocalDateTime.now());
+        }
         message = messageRepository.save(message);
 
         conversation.setUpdatedAt(LocalDateTime.now());
@@ -127,19 +141,91 @@ public class SocialService {
     }
 
     @Transactional
+    public MessageResponse markDelivered(User user, UUID conversationId, UUID messageId) {
+        Conversation conversation = getAuthorizedConversation(user, conversationId);
+        MessageEntity message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+
+        if (!message.getConversation().getId().equals(conversation.getId())) {
+            throw new RuntimeException("Message conversation mismatch");
+        }
+        if (message.getSender().getId().equals(user.getId())) {
+            return toMessageResponse(message);
+        }
+
+        if (message.getDeliveredAt() == null) {
+            message.setDeliveredAt(LocalDateTime.now());
+            messageRepository.save(message);
+        }
+
+        User sender = message.getSender();
+        MessageResponse payload = toMessageResponse(message);
+        realtimePushService.sendToUser(sender.getEmail(), "MESSAGE_STATUS_UPDATED", payload);
+        return payload;
+    }
+
+    @Transactional
+    public void sendTyping(User user, UUID conversationId, boolean typing) {
+        Conversation conversation = getAuthorizedConversation(user, conversationId);
+        MatchEntity match = conversation.getMatch();
+        User recipient = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
+
+        realtimePushService.sendToUser(recipient.getEmail(), "TYPING_UPDATED", Map.of(
+                "conversationId", conversationId,
+                "userId", user.getId(),
+                "typing", typing,
+                "at", LocalDateTime.now()
+        ));
+    }
+
+    @Transactional
     public void markConversationRead(User user, UUID conversationId) {
         Conversation conversation = getAuthorizedConversation(user, conversationId);
         List<MessageEntity> unread = messageRepository.findByConversationAndSenderNotAndReadAtIsNull(conversation, user);
+        if (unread.isEmpty()) {
+            return;
+        }
+
         LocalDateTime now = LocalDateTime.now();
-        unread.forEach(m -> m.setReadAt(now));
+        unread.forEach(m -> {
+            if (m.getDeliveredAt() == null) m.setDeliveredAt(now);
+            m.setReadAt(now);
+        });
         messageRepository.saveAll(unread);
 
         MatchEntity match = conversation.getMatch();
         User other = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
 
-        realtimePushService.sendToUser(other.getEmail(), "MESSAGES_READ", conversationId);
+        realtimePushService.sendToUser(other.getEmail(), "MESSAGES_READ", Map.of(
+                "conversationId", conversationId,
+                "readerId", user.getId(),
+                "messageIds", unread.stream().map(MessageEntity::getId).toList(),
+                "readAt", now
+        ));
         realtimePushService.sendToUser(user.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(user));
         realtimePushService.sendToUser(other.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(other));
+    }
+
+    @Transactional
+    public void markNotificationRead(User user, UUID notificationId) {
+        NotificationEntity notification = notificationRepository.findByIdAndUser(notificationId, user)
+                .orElseThrow(() -> new RuntimeException("Notification not found"));
+
+        if (!notification.isRead()) {
+            notification.setRead(true);
+            notificationRepository.save(notification);
+            realtimePushService.sendToUser(user.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(user));
+        }
+    }
+
+    @Transactional
+    public void markAllNotificationsRead(User user) {
+        var unread = notificationRepository.findByUserAndReadFalse(user);
+        if (unread.isEmpty()) return;
+
+        unread.forEach(n -> n.setRead(true));
+        notificationRepository.saveAll(unread);
+        realtimePushService.sendToUser(user.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(user));
     }
 
     @Transactional(readOnly = true)
@@ -171,7 +257,7 @@ public class SocialService {
 
     private MessageResponse toMessageResponse(MessageEntity message) {
         return new MessageResponse(message.getId(), message.getConversation().getId(), message.getSender().getId(),
-                message.getContent(), message.getCreatedAt(), message.getReadAt());
+                message.getSender().getEmail(), message.getContent(), message.getClientMessageId(), message.getCreatedAt(), message.getDeliveredAt(), message.getReadAt());
     }
 
     private void createNotification(User user, NotificationType type, String title, String message) {
