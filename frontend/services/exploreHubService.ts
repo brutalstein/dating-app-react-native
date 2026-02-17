@@ -106,9 +106,18 @@ const buildPayload = (): ExploreHubPayload => ({
   activities: [...activitySeed].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
 });
 
+const setCache = (updater: (current: ExploreHubPayload) => ExploreHubPayload) => {
+  const base = cachedPayload ?? buildPayload();
+  cachedPayload = updater(base);
+};
+
 export const exploreHubService = {
   getCachedPayload() {
     return cachedPayload;
+  },
+
+  invalidateCache() {
+    cachedPayload = null;
   },
 
   async fetchExploreHub(forceRefresh = false): Promise<ExploreHubPayload> {
@@ -119,5 +128,21 @@ export const exploreHubService = {
     await wait(450);
     cachedPayload = buildPayload();
     return cachedPayload;
+  },
+
+  async markThreadAsRead(id: string): Promise<void> {
+    await wait(120);
+    setCache((current) => ({
+      ...current,
+      messages: current.messages.map((item) => (item.id === id ? { ...item, unreadCount: 0 } : item)),
+    }));
+  },
+
+  async markNotificationAsRead(id: string): Promise<void> {
+    await wait(120);
+    setCache((current) => ({
+      ...current,
+      notifications: current.notifications.map((item) => (item.id === id ? { ...item, isRead: true } : item)),
+    }));
   },
 };

@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
 import api from '@/api/config';
+import { ExploreHubProvider } from '@/store/exploreHub/context';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -65,15 +66,17 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)/verify" options={{ headerShown: false }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-      <Stack.Screen name="messages" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      <Stack.Screen name="activity" options={{ headerShown: false, animation: 'slide_from_right' }} />
-    </Stack>
+    <ExploreHubProvider>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)/verify" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="messages" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="activity" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      </Stack>
+    </ExploreHubProvider>
   );
 }

@@ -20,7 +20,7 @@ const priorityOrder = { high: 0, medium: 1, low: 2 };
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { status, error, notifications, load, markNotificationAsRead } = useExploreHub();
+  const { status, error, notifications, load, refresh, isRefreshing, markNotificationAsRead } = useExploreHub();
 
   const sections = useMemo(() => {
     const grouped: Record<string, NotificationItem[]> = {
@@ -57,7 +57,7 @@ export default function NotificationsScreen() {
       {status === 'loading' && sections.length === 0 ? (
         <HubLoadingState />
       ) : status === 'error' ? (
-        <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={load} />
+        <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={() => load(true)} />
       ) : sections.length === 0 ? (
         <HubEmptyState title="Temiz görünüyorsun" subtitle="Yeni bildirim geldiğinde burada göreceksin." />
       ) : (
@@ -95,7 +95,7 @@ export default function NotificationsScreen() {
           maxToRenderPerBatch={10}
           windowSize={8}
           removeClippedSubviews
-          refreshControl={<RefreshControl tintColor="#FF5A5F" refreshing={status === 'loading'} onRefresh={() => load(true)} />}
+          refreshControl={<RefreshControl tintColor="#FF5A5F" refreshing={isRefreshing} onRefresh={refresh} />}
         />
       )}
     </View>

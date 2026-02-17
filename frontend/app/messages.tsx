@@ -11,7 +11,7 @@ type MessageFilter = 'all' | 'unread';
 
 export default function MessagesScreen() {
   const router = useRouter();
-  const { status, error, messages, load, markThreadAsRead } = useExploreHub();
+  const { status, error, messages, load, refresh, isRefreshing, markThreadAsRead } = useExploreHub();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<MessageFilter>('all');
 
@@ -133,7 +133,7 @@ export default function MessagesScreen() {
       {status === 'loading' && filteredMessages.length === 0 ? (
         <HubLoadingState />
       ) : status === 'error' ? (
-        <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={load} />
+        <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={() => load(true)} />
       ) : filteredMessages.length === 0 ? (
         <HubEmptyState title="Henüz mesaj yok" subtitle="Yeni eşleşmelerin burada görünecek." />
       ) : (
@@ -146,7 +146,7 @@ export default function MessagesScreen() {
           maxToRenderPerBatch={8}
           windowSize={7}
           removeClippedSubviews
-          refreshControl={<RefreshControl tintColor="#FF5A5F" refreshing={status === 'loading'} onRefresh={() => load(true)} />}
+          refreshControl={<RefreshControl tintColor="#FF5A5F" refreshing={isRefreshing} onRefresh={refresh} />}
         />
       )}
     </View>

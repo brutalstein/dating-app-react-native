@@ -19,7 +19,7 @@ const activityIconMap: Record<ActivityItem['type'], keyof typeof Ionicons.glyphM
 
 export default function ActivityScreen() {
   const router = useRouter();
-  const { status, error, activities, load } = useExploreHub();
+  const { status, error, activities, load, refresh, isRefreshing } = useExploreHub();
   const [filter, setFilter] = useState<ActivityFilter>('all');
 
   const filteredActivities = useMemo(() => {
@@ -89,7 +89,7 @@ export default function ActivityScreen() {
       {status === 'loading' && filteredActivities.length === 0 ? (
         <HubLoadingState />
       ) : status === 'error' ? (
-        <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={load} />
+        <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={() => load(true)} />
       ) : filteredActivities.length === 0 ? (
         <HubEmptyState title="Aktivite yok" subtitle="Etkileşim aldığında burada listelenecek." />
       ) : (
@@ -102,7 +102,7 @@ export default function ActivityScreen() {
           maxToRenderPerBatch={10}
           windowSize={8}
           removeClippedSubviews
-          refreshControl={<RefreshControl tintColor="#FF5A5F" refreshing={status === 'loading'} onRefresh={() => load(true)} />}
+          refreshControl={<RefreshControl tintColor="#FF5A5F" refreshing={isRefreshing} onRefresh={refresh} />}
         />
       )}
     </View>
