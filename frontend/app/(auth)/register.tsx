@@ -68,10 +68,12 @@ export default function RegisterScreen() {
           automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
-          <View className="items-center mb-8">
-            <BloomLogo size="lg" showStatusDot />
-            <Text className="text-white text-3xl font-bold mt-5">Hesap Oluştur</Text>
-            <Text className="text-zinc-400 mt-2 text-center">Üniversite topluluğuna katılıp bağlantılarını büyüt.</Text>
+          <View className="mb-8">
+            <View className="self-start mb-6">
+              <BloomLogo size="md" showStatusDot />
+            </View>
+            <Text className="text-white text-3xl font-bold">Hesap Oluştur</Text>
+            <Text className="text-zinc-400 mt-2">Üniversite topluluğuna katılıp bağlantılarını büyüt.</Text>
           </View>
 
           <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">

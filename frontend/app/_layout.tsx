@@ -2,8 +2,9 @@ import "../global.css";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
-import api from '@/api/config';
+import api, { sanitizeToken } from '@/api/config';
 import { ExploreHubProvider } from '@/store/exploreHub/context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -13,13 +14,18 @@ export default function RootLayout() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = await SecureStore.getItemAsync('token');
+        const storedToken = await SecureStore.getItemAsync('token');
+        const token = sanitizeToken(storedToken);
 
         const currentRoot = String(segments[0] || '');
         const inAuthGroup = segments[0] === '(auth)';
         const inOnboarding = currentRoot === 'onboarding';
 
         if (!token) {
+          if (storedToken) {
+            await SecureStore.deleteItemAsync('token');
+          }
+
           if (inOnboarding || !inAuthGroup) {
             router.replace('/(auth)/login' as any);
           }
@@ -43,13 +49,27 @@ export default function RootLayout() {
           router.replace('/onboarding' as any);
           return;
         }
-      } catch (error) {
-        console.error('Auth check error:', error);
-        await SecureStore.deleteItemAsync('token');
+      } catch (error: any) {
+        const status = error?.response?.status;
+        const isAuthFailure = status === 400 || status === 401;
+
+        if (isAuthFailure) {
+          await SecureStore.deleteItemAsync('token');
+        } else {
+          console.error('Auth check error:', error);
+        }
 
         const currentRoot = String(segments[0] || '');
         const inAuthGroup = segments[0] === '(auth)';
         const inOnboarding = currentRoot === 'onboarding';
+
+        if (isAuthFailure) {
+          if (inOnboarding || !inAuthGroup) {
+            router.replace('/(auth)/login' as any);
+          }
+          return;
+        }
+
         if (!inAuthGroup && !inOnboarding) {
           router.replace('/(auth)/login' as any);
         }
@@ -66,18 +86,20 @@ export default function RootLayout() {
   }
 
   return (
-    <ExploreHubProvider>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/verify" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="messages" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="activity" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="proactive-preferences" options={{ headerShown: false, animation: 'slide_from_right' }} />
-      </Stack>
-    </ExploreHubProvider>
+    <SafeAreaProvider>
+      <ExploreHubProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)/verify" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="messages" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="activity" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="proactive-preferences" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        </Stack>
+      </ExploreHubProvider>
+    </SafeAreaProvider>
   );
 }

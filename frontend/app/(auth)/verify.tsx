@@ -221,10 +221,12 @@ function VerifyEmailScreen() {
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
 
-            <View className="items-center mb-10">
-              <BloomLogo size="lg" showStatusDot />
-              <Text className="text-white text-3xl font-bold mb-3 mt-5">E-posta Doğrulama</Text>
-              <Text className="text-zinc-300 text-center text-base mb-1">6 haneli kodu gönderdik</Text>
+            <View className="mb-10">
+              <View className="self-start mb-6">
+                <BloomLogo size="md" showStatusDot />
+              </View>
+              <Text className="text-white text-3xl font-bold mb-3">E-posta Doğrulama</Text>
+              <Text className="text-zinc-300 text-base mb-1">6 haneli kodu gönderdik</Text>
               <Text className="text-white font-semibold text-base">{maskedEmail}</Text>
             </View>
 

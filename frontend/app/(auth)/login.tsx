@@ -62,10 +62,12 @@ export default function LoginScreen() {
             automaticallyAdjustKeyboardInsets
             showsVerticalScrollIndicator={false}
           >
-            <View className="items-center mb-10">
-              <BloomLogo size="lg" showStatusDot />
-              <Text className="text-white text-4xl font-bold mt-5">Giriş Yap</Text>
-              <Text className="text-zinc-300 mt-3 text-center text-base">Üniversite mailinle güvenli şekilde giriş yap.</Text>
+            <View className="mb-8">
+              <View className="self-start mb-6">
+                <BloomLogo size="md" showStatusDot />
+              </View>
+              <Text className="text-white text-4xl font-bold">Giriş Yap</Text>
+              <Text className="text-zinc-300 mt-3 text-base">Üniversite mailinle güvenli şekilde giriş yap.</Text>
             </View>
 
             <View className="bg-zinc-950/85 border border-zinc-700 rounded-3xl p-5">

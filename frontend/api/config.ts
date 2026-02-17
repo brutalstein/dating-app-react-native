@@ -2,6 +2,26 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
+const INVALID_TOKEN_VALUES = new Set(['null', 'undefined', '']);
+
+export const sanitizeToken = (rawToken?: string | null) => {
+  if (!rawToken) {
+    return null;
+  }
+
+  const token = rawToken.trim();
+  if (!token) {
+    return null;
+  }
+
+  const normalized = token.toLowerCase();
+  if (INVALID_TOKEN_VALUES.has(normalized)) {
+    return null;
+  }
+
+  return token.startsWith('Bearer ') ? token.slice(7).trim() : token;
+};
+
 const DEFAULT_API_BASE_URL = 'http://192.168.1.171:8080/api';
 const hostUri = Constants.expoConfig?.hostUri;
 const localHost = hostUri?.split(':')[0];
@@ -18,10 +38,15 @@ const api = axios.create({
 
 api.interceptors.request.use(
     async (config) => {
-        const token = await SecureStore.getItemAsync('token');
-        if(token){
+        const storedToken = await SecureStore.getItemAsync('token');
+        const token = sanitizeToken(storedToken);
+
+        if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+        } else if (storedToken) {
+            await SecureStore.deleteItemAsync('token');
         }
+
         return config;
     },
     (error) => {
