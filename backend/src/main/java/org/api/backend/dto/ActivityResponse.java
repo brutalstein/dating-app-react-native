@@ -10,5 +10,8 @@ public record ActivityResponse(
         UUID actorId,
         String actorName,
         String actorAvatar,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Integer score,
+        String reason,
+        UUID referenceId
 ) {}

@@ -10,8 +10,8 @@ import java.util.UUID;
 @Entity
 @Getter
 @Setter
-@Table(name = "activities")
-public class ActivityEntity {
+@Table(name = "recommendations")
+public class RecommendationEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -20,24 +20,22 @@ public class ActivityEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne
-    @JoinColumn(name = "actor_id")
-    private User actor;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "candidate_id")
+    private User candidate;
+
+    @Column(nullable = false)
+    private Integer score;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String reason;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ActivityType type;
-
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String summary;
+    private RecommendationStatus status = RecommendationStatus.PENDING;
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    private Integer score;
-
-    @Column(columnDefinition = "TEXT")
-    private String reason;
-
-    private UUID referenceId;
+    private LocalDateTime actionedAt;
 }

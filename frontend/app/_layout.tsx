@@ -76,6 +76,7 @@ export default function RootLayout() {
         <Stack.Screen name="messages" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="notifications" options={{ headerShown: false, animation: 'slide_from_right' }} />
         <Stack.Screen name="activity" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="proactive-preferences" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </ExploreHubProvider>
   );

@@ -239,7 +239,10 @@ public class SocialService {
                         a.getActor() != null ? a.getActor().getId() : null,
                         a.getActor() != null ? a.getActor().getFirstName() : null,
                         a.getActor() != null && !a.getActor().getPhotoUrls().isEmpty() ? a.getActor().getPhotoUrls().get(0) : null,
-                        a.getCreatedAt()))
+                        a.getCreatedAt(),
+                        a.getScore(),
+                        a.getReason(),
+                        a.getReferenceId()))
                 .toList();
         long unreadMessages = messages.stream().mapToLong(ConversationItemResponse::unreadCount).sum();
         long unreadNotifications = notificationRepository.countByUserAndReadFalse(user);

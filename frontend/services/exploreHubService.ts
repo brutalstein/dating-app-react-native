@@ -39,9 +39,19 @@ export const exploreHubService = {
       })),
       activities: (data.activities ?? []).map((a: any) => ({
         id: a.id,
-        type: a.type === 'MATCH_CREATED' ? 'new_match' : a.type === 'LIKE_RECEIVED' ? 'reaction' : 'profile_view',
+        type:
+          a.type === 'MATCH_CREATED'
+            ? 'new_match'
+            : a.type === 'LIKE_RECEIVED'
+            ? 'reaction'
+            : a.type === 'RECOMMENDATION_FOUND'
+            ? 'recommendation'
+            : 'profile_view',
         summary: a.summary,
         createdAt: a.createdAt,
+        score: typeof a.score === 'number' ? a.score : undefined,
+        reason: a.reason ?? undefined,
+        referenceId: a.referenceId ?? undefined,
         actor: { id: a.actorId ?? 'system', fullName: a.actorName ?? 'Bloom', avatarUrl: a.actorAvatar ?? undefined },
       })),
       unreadMessages: data.unreadMessages ?? 0,

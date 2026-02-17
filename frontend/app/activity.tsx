@@ -1,11 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useExploreHub } from '@/hooks/useExploreHub';
 import { Avatar, HubEmptyState, HubErrorState, HubLoadingState, hubStyles } from '@/components/explore/hub-ui';
 import { formatRelativeTime } from '@/components/explore/formatters';
 import { ActivityItem } from '@/types/exploreHub';
+import { proactiveService } from '@/services/proactiveService';
 
 type ActivityFilter = 'all' | 'highIntent';
 
@@ -15,6 +16,7 @@ const activityIconMap: Record<ActivityItem['type'], keyof typeof Ionicons.glyphM
   new_match: 'heart-outline',
   reaction: 'happy-outline',
   boost: 'flash-outline',
+  recommendation: 'sparkles-outline',
 };
 
 export default function ActivityScreen() {
@@ -27,6 +29,19 @@ export default function ActivityScreen() {
     return activities.filter((item) => (item.score ?? 0) >= 80);
   }, [activities, filter]);
 
+  const handleRecommendationAction = useCallback(
+    async (item: ActivityItem, action: 'LIKE' | 'PASS') => {
+      if (!item.referenceId) return;
+      try {
+        await proactiveService.actionRecommendation(item.referenceId, action);
+        await refresh();
+      } catch (error: any) {
+        Alert.alert('İşlem başarısız', error?.message || 'Öneri aksiyonu kaydedilemedi.');
+      }
+    },
+    [refresh]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ActivityItem }) => (
       <View style={hubStyles.card}>
@@ -37,10 +52,26 @@ export default function ActivityScreen() {
             <Ionicons name={activityIconMap[item.type]} size={14} color="#FF5A5F" />
           </View>
           <Text style={hubStyles.subtitle}>{item.summary}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <TouchableOpacity style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(255,90,95,0.2)' }}>
-              <Text style={{ color: '#fda4af', fontWeight: '700', fontSize: 11 }}>Yanıt Ver</Text>
-            </TouchableOpacity>
+          {item.reason ? <Text style={[hubStyles.subtitle, { marginTop: 4, color: '#d1d5db' }]}>{item.reason}</Text> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+            {item.type === 'recommendation' && item.referenceId ? (
+              <>
+                <TouchableOpacity
+                  onPress={() => handleRecommendationAction(item, 'LIKE')}
+                  style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(34,197,94,0.2)' }}>
+                  <Text style={{ color: '#86efac', fontWeight: '700', fontSize: 11 }}>Beğen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleRecommendationAction(item, 'PASS')}
+                  style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(255,255,255,0.12)' }}>
+                  <Text style={{ color: '#e5e7eb', fontWeight: '700', fontSize: 11 }}>Geç</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(255,90,95,0.2)' }}>
+                <Text style={{ color: '#fda4af', fontWeight: '700', fontSize: 11 }}>Yanıt Ver</Text>
+              </TouchableOpacity>
+            )}
             <Text style={hubStyles.subtitle}>{formatRelativeTime(item.createdAt)}</Text>
           </View>
         </View>
@@ -53,7 +84,7 @@ export default function ActivityScreen() {
         </View>
       </View>
     ),
-    []
+    [handleRecommendationAction]
   );
 
   return (

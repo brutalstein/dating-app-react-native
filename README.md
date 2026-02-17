@@ -31,6 +31,9 @@ Eklenen ana tablolar/entity’ler:
 - `messages` (`MessageEntity`)
 - `notifications` (`NotificationEntity`)
 - `activities` (`ActivityEntity`)
+- `user_preference_profiles` (`UserPreferenceProfile`)
+- `user_preference_criteria` (`PreferenceCriterion`)
+- `recommendations` (`RecommendationEntity`)
 
 Mesaj durum alanları:
 - `messages.client_message_id`
@@ -48,6 +51,10 @@ Migration:
 - `GET /api/conversations`
 - `GET /api/conversations/{conversationId}/messages`
 - `POST /api/conversations/{conversationId}/read`
+- `GET /api/recommendations/preferences`
+- `PUT /api/recommendations/preferences`
+- `POST /api/recommendations/scan`
+- `POST /api/recommendations/{recommendationId}/action` (`LIKE` / `PASS`)
 
 ### WebSocket/STOMP
 - Endpoint: `/ws`
@@ -104,9 +111,25 @@ npm run lint
 npm run build:web
 ```
 
+## AI Proaktif Eşleşme Asistanı
+
+Akış:
+1. Kullanıcı `Settings > AI Proaktif Eşleşme Asistanı` ekranından kriterlerini (`must-have / nice-to-have / weight`) kaydeder.
+2. `Proaktif Ara` açıkken backend async tarama başlatır.
+3. Deterministik scoring motoru (kural + ağırlık + ortak ilgi bonusu) uygun adayları seçer.
+4. Öneri `activities` akışına `Sana özel bulundu` formatında düşer (`reason`, `score`, `referenceId`).
+5. Activity ekranından `Beğen / Geç` aksiyonu gönderilir.
+
 ## Smoke test
 
-2 kullanıcı senaryosu: `docs/realtime-smoke-test.md`
+Kısa feature smoke:
+1. En az 2 onboarding tamamlamış kullanıcı oluştur.
+2. Kullanıcı-A ile `proactive-preferences` ekranında kriter seç + `Proaktif Ara` aç.
+3. `Şimdi Tara` butonuna bas.
+4. Activity ekranında `Sana özel bulundu` kartı, `reason` metni ve skor görünmeli.
+5. `Beğen` veya `Geç` sonrası backend `recommendations.status` güncellenmeli.
+
+Realtime/chat smoke: `docs/realtime-smoke-test.md`
 
 ## Operasyon dokümanları
 

@@ -32,10 +32,12 @@ export interface NotificationItem {
 export interface ActivityItem {
   id: string;
   actor: ExploreUser;
-  type: 'profile_view' | 'super_like' | 'new_match' | 'reaction' | 'boost';
+  type: 'profile_view' | 'super_like' | 'new_match' | 'reaction' | 'boost' | 'recommendation';
   summary: string;
   createdAt: string;
   score?: number;
+  reason?: string;
+  referenceId?: string;
 }
 
 export interface ExploreHubPayload {
