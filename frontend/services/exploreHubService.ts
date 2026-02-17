@@ -4,6 +4,9 @@ import { ExploreHubPayload } from '@/types/exploreHub';
 let cachedPayload: ExploreHubPayload | null = null;
 let inFlightRequest: Promise<ExploreHubPayload> | null = null;
 let blockedUntilMs = 0;
+let nextAllowedNetworkFetchAtMs = 0;
+
+const MIN_NETWORK_FETCH_INTERVAL_MS = 15 * 1000;
 
 export class ExploreHubRateLimitError extends Error {
   retryAfterMs: number;
@@ -80,6 +83,7 @@ export const exploreHubService = {
 
   invalidateCache() {
     cachedPayload = null;
+    nextAllowedNetworkFetchAtMs = 0;
   },
 
   getBlockedUntilMs() {
@@ -96,11 +100,17 @@ export const exploreHubService = {
       return inFlightRequest;
     }
 
+    if (cachedPayload && nextAllowedNetworkFetchAtMs > now) {
+      return cachedPayload;
+    }
+
     inFlightRequest = (async () => {
       try {
         const { data } = await api.get('/explore-hub');
         const payload = mapPayload(data);
         cachedPayload = payload;
+        blockedUntilMs = 0;
+        nextAllowedNetworkFetchAtMs = Date.now() + MIN_NETWORK_FETCH_INTERVAL_MS;
         return payload;
       } catch (error: any) {
         const status = error?.response?.status;
@@ -110,6 +120,7 @@ export const exploreHubService = {
           );
           const retryAfterMs = retryAfterSeconds * 1000;
           blockedUntilMs = Date.now() + retryAfterMs;
+          nextAllowedNetworkFetchAtMs = blockedUntilMs;
           throw new ExploreHubRateLimitError('Sunucu yoğun. Yeniden denemeden önce biraz bekleyin.', retryAfterMs);
         }
         throw error;

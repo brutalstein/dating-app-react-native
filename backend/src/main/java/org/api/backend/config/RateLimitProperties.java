@@ -17,7 +17,7 @@ public class RateLimitProperties {
     private int criticalLimit = 40;
     private int criticalWindowSeconds = 60;
 
-    private int exploreHubLimit = 180;
+    private int exploreHubLimit = 480;
     private int exploreHubWindowSeconds = 60;
 
     private int authFailureBaseBlockSeconds = 30;

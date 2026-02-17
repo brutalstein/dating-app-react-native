@@ -65,6 +65,14 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
     } catch (err) {
       if (err instanceof ExploreHubRateLimitError) {
         dispatch({ type: 'SET_STALE_AT', payload: { staleAt: Date.now() + err.retryAfterMs } });
+        const hasData =
+          currentState.messages.length > 0 ||
+          currentState.notifications.length > 0 ||
+          currentState.activities.length > 0;
+
+        if (hasData) {
+          return;
+        }
       }
 
       dispatch({ type: 'LOAD_ERROR', payload: { error: err instanceof Error ? err.message : 'Bir hata oluştu' } });

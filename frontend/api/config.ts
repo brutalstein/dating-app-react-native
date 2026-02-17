@@ -7,6 +7,8 @@ const INVALID_TOKEN_VALUES = new Set(['null', 'undefined', '']);
 const MONITOR_THROTTLE_MS = 60 * 1000;
 const monitorBuckets = new Map<string, number>();
 
+const isExploreHubPath = (url: string) => url.includes('/explore-hub');
+
 export const sanitizeToken = (rawToken?: string | null) => {
   if (!rawToken) {
     return null;
@@ -70,11 +72,12 @@ api.interceptors.response.use(
     const url = String(error?.config?.url || 'unknown');
     const status = Number(error?.response?.status || 0);
 
+    const isExpectedExploreHubThrottle = status === 429 && method === 'GET' && isExploreHubPath(url);
     const shouldSuppress429Noise = status === 429;
     const bucketKey = `${method}:${url}:${status}`;
     const now = Date.now();
     const lastSentAt = monitorBuckets.get(bucketKey) || 0;
-    const shouldCapture = !shouldSuppress429Noise || now - lastSentAt > MONITOR_THROTTLE_MS;
+    const shouldCapture = !isExpectedExploreHubThrottle && (!shouldSuppress429Noise || now - lastSentAt > MONITOR_THROTTLE_MS);
 
     if (shouldCapture) {
       monitorBuckets.set(bucketKey, now);
