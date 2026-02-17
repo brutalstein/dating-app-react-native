@@ -2,6 +2,7 @@ package org.api.backend.controller;
 
 import org.api.backend.dto.OnboardingRequest;
 import org.api.backend.dto.UserProfileResponse;
+import org.api.backend.service.AbuseProtectionService;
 import org.api.backend.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -25,18 +27,24 @@ class AuthControllerIntegrationTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private AbuseProtectionService abuseProtectionService;
+
     private AuthController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new AuthController(authService);
+        controller = new AuthController(authService, abuseProtectionService);
     }
 
     @Test
     void login_returnsToken_whenCredentialsAreValid() {
         when(authService.login("alice@uni.edu.tr", "StrongPass123")).thenReturn("jwt-token");
 
-        ResponseEntity<?> response = controller.login(Map.of("email", "alice@uni.edu.tr", "password", "StrongPass123"));
+        ResponseEntity<?> response = controller.login(
+                Map.of("email", "alice@uni.edu.tr", "password", "StrongPass123"),
+                new MockHttpServletRequest()
+        );
 
         assertEquals(200, response.getStatusCode().value());
         Map<?, ?> body = assertInstanceOf(Map.class, response.getBody());
@@ -47,7 +55,10 @@ class AuthControllerIntegrationTest {
     void login_returnsBadRequest_whenCredentialsAreInvalid() {
         when(authService.login("alice@uni.edu.tr", "wrong")).thenThrow(new RuntimeException("Invalid email or password."));
 
-        ResponseEntity<?> response = controller.login(Map.of("email", "alice@uni.edu.tr", "password", "wrong"));
+        ResponseEntity<?> response = controller.login(
+                Map.of("email", "alice@uni.edu.tr", "password", "wrong"),
+                new MockHttpServletRequest()
+        );
 
         assertEquals(400, response.getStatusCode().value());
         Map<?, ?> body = assertInstanceOf(Map.class, response.getBody());

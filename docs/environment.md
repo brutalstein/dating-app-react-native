@@ -26,9 +26,21 @@ MAIL_PASSWORD=<smtp_app_password>
 JPA_DDL_AUTO=validate
 FLYWAY_ENABLED=true
 JPA_SHOW_SQL=false
+RATE_LIMIT_DEFAULT_LIMIT=120
+RATE_LIMIT_DEFAULT_WINDOW_SECONDS=60
+RATE_LIMIT_AUTH_LIMIT=12
+RATE_LIMIT_AUTH_WINDOW_SECONDS=60
+RATE_LIMIT_CRITICAL_LIMIT=40
+RATE_LIMIT_CRITICAL_WINDOW_SECONDS=60
+RATE_LIMIT_AUTH_FAILURE_THRESHOLD=5
+RATE_LIMIT_AUTH_FAILURE_BASE_BLOCK_SECONDS=30
+RATE_LIMIT_AUTH_FAILURE_MAX_BLOCK_SECONDS=900
+RATE_LIMIT_MESSAGE_FLOOD_LIMIT=15
+RATE_LIMIT_MESSAGE_FLOOD_WINDOW_SECONDS=20
 ```
 
 Notes:
 - `application.properties` içindeki default değerler local geliştirme içindir.
 - Production'da tüm kritik alanları env ile override edin.
 - `JWT_SECRET` güçlü ve ortam bazlı olmalı; dev/stage/prod ayrı tutulmalı.
+- Rate limit ayarları endpoint sınıfına göre uygulanır (auth/critical/default + websocket chat).

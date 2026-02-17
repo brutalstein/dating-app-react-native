@@ -131,6 +131,28 @@ Kısa feature smoke:
 
 Realtime/chat smoke: `docs/realtime-smoke-test.md`
 
+## Rate limit & abuse koruması
+
+Backend tarafında düşük riskli in-memory korumalar aktiftir (tek instance için uygundur, multi-instance için Redis benzeri ortak store önerilir).
+
+- Auth (`/api/auth/*`): sıkı limit + failed auth backoff (IP + email anahtarı)
+- Kritik (`POST /api/likes/*`, `POST /api/conversations/*/read`, `POST /api/recommendations/**`): orta limit
+- Genel (`/api/**`): makul default limit
+- Realtime (`/app/chat.send`, `/app/chat.typing`, `/app/chat.delivered`, `/app/chat.sync`): websocket inbound limit + mesaj flood koruması
+
+Limit aşımında API `429` döner:
+
+```json
+{
+  "status": 429,
+  "error": "TOO_MANY_REQUESTS",
+  "message": "Rate limit exceeded. Please try again later.",
+  "retryAfterSeconds": 12
+}
+```
+
+Header: `Retry-After`.
+
 ## Operasyon dokümanları
 
 - Environment/config: `docs/environment.md`

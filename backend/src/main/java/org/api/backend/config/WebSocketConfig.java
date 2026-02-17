@@ -25,6 +25,7 @@ import java.util.List;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtService jwtService;
+    private final WebSocketRateLimitInterceptor webSocketRateLimitInterceptor;
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
@@ -40,7 +41,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(new ChannelInterceptor() {
+        registration.interceptors(authChannelInterceptor(), webSocketRateLimitInterceptor);
+    }
+
+    private ChannelInterceptor authChannelInterceptor() {
+        return new ChannelInterceptor() {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
@@ -61,6 +66,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 }
                 return message;
             }
-        });
+        };
     }
 }
