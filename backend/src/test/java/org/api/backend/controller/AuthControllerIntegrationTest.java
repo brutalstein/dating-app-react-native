@@ -59,9 +59,12 @@ class AuthControllerIntegrationTest {
         OnboardingRequest request = new OnboardingRequest(
                 "2000-05-12",
                 "Computer Engineering",
+                180,
+                72.5,
                 "Coffee and long walks",
                 "MALE",
                 "FEMALE",
+                "SERIOUS",
                 List.of("Music", "Travel"),
                 List.of("https://cdn/a.jpg", "https://cdn/b.jpg", "https://cdn/c.jpg")
         );
@@ -75,9 +78,12 @@ class AuthControllerIntegrationTest {
                         "Computer Engineering",
                         "2000-05-12",
                         25,
+                        180,
+                        72.5,
                         "Coffee and long walks",
                         "MALE",
                         "FEMALE",
+                        "SERIOUS",
                         List.of("Music", "Travel"),
                         List.of("https://cdn/a.jpg", "https://cdn/b.jpg", "https://cdn/c.jpg"),
                         true
@@ -95,9 +101,12 @@ class AuthControllerIntegrationTest {
         OnboardingRequest request = new OnboardingRequest(
                 "2012-01-01",
                 null,
+                100,
+                20.0,
                 null,
                 "MALE",
                 "FEMALE",
+                "CASUAL",
                 List.of("Music"),
                 List.of("https://cdn/a.jpg", "https://cdn/b.jpg")
         );

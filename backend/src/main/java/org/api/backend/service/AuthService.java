@@ -7,10 +7,15 @@ import org.api.backend.dto.PhotoUpdateRequest;
 import org.api.backend.dto.UserProfileResponse;
 import org.api.backend.entity.Gender;
 import org.api.backend.entity.PendingRegistration;
+import org.api.backend.entity.PreferenceCategory;
+import org.api.backend.entity.PreferenceCriterion;
+import org.api.backend.entity.RelationshipIntent;
 import org.api.backend.entity.University;
 import org.api.backend.entity.User;
+import org.api.backend.entity.UserPreferenceProfile;
 import org.api.backend.entity.VerificationCode;
 import org.api.backend.repos.UniversityRepository;
+import org.api.backend.repos.UserPreferenceProfileRepository;
 import org.api.backend.repos.UserRepository;
 import org.api.backend.repos.CodeRepository;
 import org.api.backend.repos.PendingRegistrationRepository;
@@ -38,6 +43,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final CodeRepository codeRepository;
     private final PendingRegistrationRepository pendingRegistrationRepository;
+    private final UserPreferenceProfileRepository userPreferenceProfileRepository;
     private final JavaMailSender mailSender;
 
     private String normalizeEmail(String email) {
@@ -155,6 +161,10 @@ public class AuthService {
             throw new RuntimeException("Dating preference is required.");
         }
 
+        if (request.relationshipIntent() == null || request.relationshipIntent().trim().isBlank()) {
+            throw new RuntimeException("Relationship intent is required.");
+        }
+
         List<String> interests = sanitizeInterests(request.interests());
         if (interests.isEmpty()) {
             throw new RuntimeException("Please select at least one interest.");
@@ -162,16 +172,30 @@ public class AuthService {
 
         List<String> photoUrls = sanitizePhotos(request.photoUrls());
 
+        Integer heightCm = request.heightCm();
+        if (heightCm == null || heightCm < 120 || heightCm > 230) {
+            throw new RuntimeException("Height must be between 120 and 230 cm.");
+        }
+
+        Double weightKg = request.weightKg();
+        if (weightKg == null || weightKg < 30 || weightKg > 250) {
+            throw new RuntimeException("Weight must be between 30 and 250 kg.");
+        }
+
         user.setBirthDate(birthDate);
         user.setDepartment(request.department() != null && !request.department().trim().isBlank() ? request.department().trim() : null);
+        user.setHeightCm(heightCm);
+        user.setWeightKg(weightKg);
         user.setBio(request.bio() != null && !request.bio().trim().isBlank() ? request.bio().trim() : null);
         user.setGender(parseGender(request.gender()));
         user.setPreference(parseGender(request.preference()));
+        user.setRelationshipIntent(parseRelationshipIntent(request.relationshipIntent()));
         user.setInterests(interests);
         user.setPhotoUrls(photoUrls);
         user.setOnboardingCompleted(true);
 
         userRepository.save(user);
+        syncPreferenceProfileFromOnboarding(user);
         return toUserProfileResponse(user);
     }
 
@@ -224,9 +248,12 @@ public class AuthService {
                 user.getDepartment(),
                 user.getBirthDate() != null ? user.getBirthDate().toString() : null,
                 age,
+                user.getHeightCm(),
+                user.getWeightKg(),
                 user.getBio(),
                 user.getGender() != null ? user.getGender().name() : null,
                 user.getPreference() != null ? user.getPreference().name() : null,
+                user.getRelationshipIntent() != null ? user.getRelationshipIntent().name() : null,
                 interests,
                 photoUrls,
                 user.getOnboardingCompleted()
@@ -291,6 +318,62 @@ public class AuthService {
         } catch (Exception e) {
             throw new RuntimeException("Invalid gender/preference value: " + rawGender);
         }
+    }
+
+    private RelationshipIntent parseRelationshipIntent(String rawIntent) {
+        try {
+            return RelationshipIntent.valueOf(rawIntent.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid relationship intent value: " + rawIntent);
+        }
+    }
+
+    private void syncPreferenceProfileFromOnboarding(User user) {
+        UserPreferenceProfile profile = userPreferenceProfileRepository.findByUser(user).orElseGet(UserPreferenceProfile::new);
+        if (profile.getId() == null) {
+            profile.setUser(user);
+        }
+
+        List<PreferenceCriterion> criteria = new ArrayList<>();
+        criteria.add(buildCriterion("preference_alignment", "true", PreferenceCategory.MUST_HAVE, 100));
+
+        if (user.getRelationshipIntent() != null) {
+            criteria.add(buildCriterion("relationship_intent", user.getRelationshipIntent().name(), PreferenceCategory.MUST_HAVE, 95));
+        }
+
+        if (user.getDepartment() != null && !user.getDepartment().isBlank()) {
+            criteria.add(buildCriterion("department", user.getDepartment(), PreferenceCategory.NICE_TO_HAVE, 55));
+        }
+
+        if (user.getHeightCm() != null) {
+            criteria.add(buildCriterion("height_min_cm", String.valueOf(Math.max(120, user.getHeightCm() - 10)), PreferenceCategory.NICE_TO_HAVE, 45));
+            criteria.add(buildCriterion("height_max_cm", String.valueOf(Math.min(230, user.getHeightCm() + 10)), PreferenceCategory.NICE_TO_HAVE, 45));
+        }
+
+        if (user.getWeightKg() != null) {
+            int minWeight = (int) Math.max(30, Math.floor(user.getWeightKg() - 12));
+            int maxWeight = (int) Math.min(250, Math.ceil(user.getWeightKg() + 12));
+            criteria.add(buildCriterion("weight_min_kg", String.valueOf(minWeight), PreferenceCategory.NICE_TO_HAVE, 40));
+            criteria.add(buildCriterion("weight_max_kg", String.valueOf(maxWeight), PreferenceCategory.NICE_TO_HAVE, 40));
+        }
+
+        if (user.getInterests() != null) {
+            user.getInterests().stream().limit(2)
+                    .forEach(interest -> criteria.add(buildCriterion("interest", interest, PreferenceCategory.NICE_TO_HAVE, 60)));
+        }
+
+        profile.setCriteria(criteria);
+        profile.setUpdatedAt(LocalDateTime.now());
+        userPreferenceProfileRepository.save(profile);
+    }
+
+    private PreferenceCriterion buildCriterion(String key, String value, PreferenceCategory category, int weight) {
+        PreferenceCriterion criterion = new PreferenceCriterion();
+        criterion.setKey(key.trim().toLowerCase());
+        criterion.setValue(value.trim().toLowerCase());
+        criterion.setCategory(category);
+        criterion.setWeight(weight);
+        return criterion;
     }
 
     @Transactional

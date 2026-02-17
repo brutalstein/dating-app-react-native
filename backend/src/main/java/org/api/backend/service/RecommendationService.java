@@ -1,6 +1,7 @@
 package org.api.backend.service;
 
 import lombok.RequiredArgsConstructor;
+import org.api.backend.dto.PreferenceCatalogResponse;
 import org.api.backend.dto.PreferenceProfileResponse;
 import org.api.backend.dto.UpsertPreferenceProfileRequest;
 import org.api.backend.entity.*;
@@ -84,6 +85,20 @@ public class RecommendationService {
                         .filter(p -> Boolean.TRUE.equals(p.getProactiveEnabled()))
                         .ifPresent(p -> runScan(user, p))
         );
+    }
+
+    @Transactional(readOnly = true)
+    public PreferenceCatalogResponse getCatalog(User user) {
+        return new PreferenceCatalogResponse(List.of(
+                new PreferenceCatalogResponse.PreferenceCriterionTemplate("preference_alignment", "Tercih uyumu", "boolean", 100, true, List.of("true")),
+                new PreferenceCatalogResponse.PreferenceCriterionTemplate("relationship_intent", "İlişki arayışı", "select", 95, true, List.of("casual", "serious", "friendship")),
+                new PreferenceCatalogResponse.PreferenceCriterionTemplate("interest", "İlgi alanı", "select", 70, false, user.getInterests() == null ? List.of() : user.getInterests()),
+                new PreferenceCatalogResponse.PreferenceCriterionTemplate("department", "Bölüm", "text", 55, false, List.of()),
+                new PreferenceCatalogResponse.PreferenceCriterionTemplate("height_min_cm", "Minimum boy (cm)", "number", 45, false, List.of()),
+                new PreferenceCatalogResponse.PreferenceCriterionTemplate("height_max_cm", "Maksimum boy (cm)", "number", 45, false, List.of()),
+                new PreferenceCatalogResponse.PreferenceCriterionTemplate("weight_min_kg", "Minimum kilo (kg)", "number", 40, false, List.of()),
+                new PreferenceCatalogResponse.PreferenceCriterionTemplate("weight_max_kg", "Maksimum kilo (kg)", "number", 40, false, List.of())
+        ));
     }
 
     @Transactional

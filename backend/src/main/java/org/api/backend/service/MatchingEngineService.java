@@ -67,8 +67,14 @@ public class MatchingEngineService {
             case "department" -> normalize(candidate.getDepartment()).equals(value);
             case "university" -> candidate.getUniversity() != null && normalize(candidate.getUniversity().getName()).equals(value);
             case "interest" -> normalizeSet(candidate.getInterests()).contains(value);
+            case "height_min_cm" -> candidate.getHeightCm() != null && candidate.getHeightCm() >= parseInt(value, Integer.MIN_VALUE);
+            case "height_max_cm" -> candidate.getHeightCm() != null && candidate.getHeightCm() <= parseInt(value, Integer.MAX_VALUE);
+            case "weight_min_kg" -> candidate.getWeightKg() != null && candidate.getWeightKg() >= parseDouble(value, Double.MIN_VALUE);
+            case "weight_max_kg" -> candidate.getWeightKg() != null && candidate.getWeightKg() <= parseDouble(value, Double.MAX_VALUE);
             case "preference_alignment" -> user.getPreference() != null && candidate.getGender() != null
                     && normalize(candidate.getGender().name()).equals(normalize(user.getPreference().name()));
+            case "relationship_intent" -> candidate.getRelationshipIntent() != null
+                    && normalize(candidate.getRelationshipIntent().name()).equals(value);
             default -> false;
         };
     }
@@ -84,5 +90,21 @@ public class MatchingEngineService {
     private Set<String> normalizeSet(List<String> values) {
         if (values == null) return new HashSet<>();
         return values.stream().map(this::normalize).filter(v -> !v.isBlank()).collect(Collectors.toSet());
+    }
+
+    private int parseInt(String value, int fallback) {
+        try {
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private double parseDouble(String value, double fallback) {
+        try {
+            return Double.parseDouble(value);
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 }

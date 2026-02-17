@@ -18,7 +18,8 @@ import {
 } from '@/components/ui/onboarding-controls';
 
 type GenderType = 'MALE' | 'FEMALE' | 'NON_BINARY' | 'OTHER';
-type FocusField = 'department' | 'birthDate' | 'bio' | null;
+type RelationshipIntentType = 'CASUAL' | 'SERIOUS' | 'FRIENDSHIP';
+type FocusField = 'department' | 'birthDate' | 'heightCm' | 'weightKg' | 'bio' | null;
 
 const interestsPool = ['Müzik', 'Kahve', 'Sinema', 'Yürüyüş', 'Yazılım', 'Fotoğraf', 'Masa Oyunları', 'Girişimcilik', 'Spor', 'Seyahat'];
 const genderOptions: { label: string; value: GenderType }[] = [
@@ -26,6 +27,12 @@ const genderOptions: { label: string; value: GenderType }[] = [
   { label: 'Kadın', value: 'FEMALE' },
   { label: 'Non-binary', value: 'NON_BINARY' },
   { label: 'Diğer', value: 'OTHER' },
+];
+
+const relationshipIntentOptions: { label: string; value: RelationshipIntentType }[] = [
+  { label: 'Gecelik', value: 'CASUAL' },
+  { label: 'Ciddi ilişki', value: 'SERIOUS' },
+  { label: 'Arkadaşlık', value: 'FRIENDSHIP' },
 ];
 
 const stepMeta = [
@@ -52,6 +59,9 @@ export default function OnboardingScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [gender, setGender] = useState<GenderType | null>(null);
   const [preference, setPreference] = useState<GenderType | null>(null);
+  const [relationshipIntent, setRelationshipIntent] = useState<RelationshipIntentType | null>(null);
+  const [heightCm, setHeightCm] = useState('');
+  const [weightKg, setWeightKg] = useState('');
   const [bio, setBio] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -88,8 +98,12 @@ export default function OnboardingScreen() {
   };
 
   const validStep = () => {
-    if (step === 0) return !!birthDate && age(birthDate) >= 18 && department.trim().length > 1;
-    if (step === 1) return !!gender && !!preference;
+    if (step === 0) {
+      const h = Number(heightCm);
+      const w = Number(weightKg);
+      return !!birthDate && age(birthDate) >= 18 && department.trim().length > 1 && Number.isFinite(h) && h >= 120 && h <= 230 && Number.isFinite(w) && w >= 30 && w <= 250;
+    }
+    if (step === 1) return !!gender && !!preference && !!relationshipIntent;
     if (step === 2) return bio.trim().length >= 12 && interests.length >= 2;
     if (step === 3) return photoUrls.length >= 3;
     return true;
@@ -106,16 +120,19 @@ export default function OnboardingScreen() {
       return;
     }
 
-    if (!birthDate || !gender || !preference) return;
+    if (!birthDate || !gender || !preference || !relationshipIntent) return;
 
     setSaving(true);
     try {
       const res: UserProfile = await profileService.completeOnboarding({
         birthDate: formatDate(birthDate),
         department: department.trim(),
+        heightCm: Number(heightCm),
+        weightKg: Number(weightKg),
         bio: bio.trim(),
         gender,
         preference,
+        relationshipIntent,
         interests,
         photoUrls,
       });
@@ -133,7 +150,7 @@ export default function OnboardingScreen() {
     step === 0
       ? 'Yaş doğrulaması için 18+ olmalısın.'
       : step === 1
-        ? 'Bu seçimler eşleşme önerilerini belirler.'
+        ? 'Cinsiyet, tercih ve ilişki arayışı eşleşme önerilerini belirler.'
         : step === 2
           ? `İlgi alanı: ${interests.length}/5`
           : `Fotoğraf: ${photoUrls.length}/8 (min 3)`;
@@ -188,6 +205,35 @@ export default function OnboardingScreen() {
                   returnKeyType="done"
                 />
 
+                <View className="flex-row gap-3 mt-3">
+                  <View style={{ flex: 1 }}>
+                    <OnboardingTextField
+                      label="Boy (cm)"
+                      value={heightCm}
+                      onChangeText={setHeightCm}
+                      onFocus={() => setFocusedField('heightCm')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="numeric"
+                      placeholder="170"
+                      placeholderTextColor="#8A8A8F"
+                      focused={focusedField === 'heightCm'}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <OnboardingTextField
+                      label="Kilo (kg)"
+                      value={weightKg}
+                      onChangeText={setWeightKg}
+                      onFocus={() => setFocusedField('weightKg')}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="numeric"
+                      placeholder="65"
+                      placeholderTextColor="#8A8A8F"
+                      focused={focusedField === 'weightKg'}
+                    />
+                  </View>
+                </View>
+
                 <OnboardingDateField
                   label="Doğum Tarihi"
                   onPress={() => {
@@ -237,6 +283,21 @@ export default function OnboardingScreen() {
                         selected={preference === g.value}
                         onPress={() => setPreference(g.value)}
                         tone="accent"
+                      />
+                    ))}
+                  </View>
+                </View>
+
+                <View>
+                  <Text className="text-zinc-200 text-sm font-semibold mb-2">İlişki arayışın</Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {relationshipIntentOptions.map((item) => (
+                      <OnboardingChoiceChip
+                        key={item.value}
+                        label={`${item.label}`}
+                        selected={relationshipIntent === item.value}
+                        onPress={() => setRelationshipIntent(item.value)}
+                        tone="secondary"
                       />
                     ))}
                   </View>
