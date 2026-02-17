@@ -1,5 +1,7 @@
 package org.api.backend.service;
 
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.api.backend.dto.*;
 import org.api.backend.entity.*;
@@ -25,6 +27,9 @@ public class SocialService {
     private final RealtimePushService realtimePushService;
     private final PresenceService presenceService;
     private final PushNotificationService pushNotificationService;
+    private final SafetyService safetyService;
+    private final PremiumService premiumService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public LikeResponse sendLike(User sender, UUID targetUserId) {
@@ -33,6 +38,9 @@ public class SocialService {
 
         if (sender.getId().equals(receiver.getId())) {
             throw new RuntimeException("You cannot like yourself");
+        }
+        if (safetyService.isBlockedEitherDirection(sender, receiver)) {
+            throw new RuntimeException("Bu kullanıcı ile etkileşim engellenmiş.");
         }
 
         if (!likeRepository.existsBySenderAndReceiver(sender, receiver)) {
@@ -104,6 +112,7 @@ public class SocialService {
                     }
 
                     if (other == null) return null;
+                    if (safetyService.isBlockedEitherDirection(user, other)) return null;
 
                     MessageEntity last = messageRepository.findTopByConversationOrderByCreatedAtDesc(c);
                     String lastMessage = last != null ? last.getContent() : "";
@@ -133,7 +142,7 @@ public class SocialService {
         if (content == null || content.trim().isBlank()) throw new RuntimeException("Message empty");
 
         Conversation conversation = getAuthorizedConversation(user, conversationId);
-        if (Boolean.TRUE.equals(conversation.getTeaserConversation())) {
+        if (Boolean.TRUE.equals(conversation.getTeaserConversation()) && !premiumService.hasFeature(user, "profile_unlock")) {
             throw new RuntimeException("Teaser sohbetlerde mesaj gönderimi premium ile açılır.");
         }
 
@@ -142,6 +151,9 @@ public class SocialService {
             throw new RuntimeException("Conversation has no match context");
         }
         User recipient = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
+        if (safetyService.isBlockedEitherDirection(user, recipient)) {
+            throw new RuntimeException("Bu kullanıcı ile mesajlaşma engellenmiş.");
+        }
 
         if (clientMessageId != null && !clientMessageId.isBlank()) {
             var existing = messageRepository.findByConversationAndSenderAndClientMessageId(conversation, user, clientMessageId.trim());
@@ -296,11 +308,21 @@ public class SocialService {
                         a.getCreatedAt(),
                         a.getScore(),
                         a.getReason(),
-                        a.getReferenceId()))
+                        a.getReferenceId(),
+                        parseExplainability(a.getExplainabilityJson())))
                 .toList();
         long unreadMessages = messages.stream().mapToLong(ConversationItemResponse::unreadCount).sum();
         long unreadNotifications = notificationRepository.countByUserAndReadFalse(user);
         return new ExploreHubResponse(messages, notifications, activities, unreadMessages, unreadNotifications);
+    }
+
+    private List<ExplainabilityItemResponse> parseExplainability(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<ExplainabilityItemResponse>>() {});
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private Conversation getAuthorizedConversation(User user, UUID conversationId) {
@@ -314,6 +336,12 @@ public class SocialService {
             authorized = match != null && (match.getUserOne().getId().equals(user.getId()) || match.getUserTwo().getId().equals(user.getId()));
         }
         if (!authorized) throw new RuntimeException("Forbidden");
+        if (!Boolean.TRUE.equals(conversation.getTeaserConversation()) && conversation.getMatch() != null) {
+            User other = conversation.getMatch().getUserOne().getId().equals(user.getId()) ? conversation.getMatch().getUserTwo() : conversation.getMatch().getUserOne();
+            if (safetyService.isBlockedEitherDirection(user, other)) {
+                throw new RuntimeException("Bu konuşma erişime kapalı.");
+            }
+        }
         return conversation;
     }
 

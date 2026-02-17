@@ -1,5 +1,6 @@
 package org.api.backend.service;
 
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.api.backend.dto.PreferenceCatalogResponse;
 import org.api.backend.dto.PreferenceProfileResponse;
@@ -28,6 +29,7 @@ public class RecommendationService {
     private final SocialService socialService;
     private final RealtimePushService realtimePushService;
     private final MatchingEngineService matchingEngineService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public PreferenceProfileResponse upsertProfile(User user, UpsertPreferenceProfileRequest request) {
@@ -152,6 +154,11 @@ public class RecommendationService {
             activity.setSummary("Sana özel bulundu: " + candidate.getFirstName());
             activity.setReason(result.reason());
             activity.setScore(result.score());
+            try {
+                activity.setExplainabilityJson(objectMapper.writeValueAsString(result.explainability()));
+            } catch (Exception ignored) {
+                activity.setExplainabilityJson("[]");
+            }
             activity.setReferenceId(recommendation.getId());
             activityRepository.save(activity);
 
