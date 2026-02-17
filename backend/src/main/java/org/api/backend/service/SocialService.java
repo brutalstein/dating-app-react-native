@@ -77,18 +77,42 @@ public class SocialService {
 
     @Transactional(readOnly = true)
     public List<ConversationItemResponse> listConversations(User user) {
-        return matchRepository.findByUserOneOrUserTwoOrderByCreatedAtDesc(user, user).stream().map(match -> {
-            Conversation c = conversationRepository.findByMatch(match).orElse(null);
-            if (c == null) return null;
-            User other = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
-            MessageEntity last = messageRepository.findTopByConversationOrderByCreatedAtDesc(c);
-            String lastMessage = last != null ? last.getContent() : "";
-            LocalDateTime lastAt = last != null ? last.getCreatedAt() : c.getCreatedAt();
-            long unread = messageRepository.countByConversationAndSenderNotAndReadAtIsNull(c, user);
-            return new ConversationItemResponse(c.getId(), match.getId(), other.getId(), other.getFirstName(),
-                    other.getPhotoUrls().isEmpty() ? null : other.getPhotoUrls().get(0),
-                    presenceService.isOnline(other), other.getLastSeen(), lastMessage, lastAt, unread);
-        }).filter(java.util.Objects::nonNull).toList();
+        seedNpcTeaserConversationIfNeeded(user);
+
+        return conversationRepository.findAll().stream()
+                .filter(c -> {
+                    if (Boolean.TRUE.equals(c.getTeaserConversation())) {
+                        return c.getTeaserOwnerUser() != null && c.getTeaserOwnerUser().getId().equals(user.getId());
+                    }
+                    MatchEntity m = c.getMatch();
+                    return m != null && (m.getUserOne().getId().equals(user.getId()) || m.getUserTwo().getId().equals(user.getId()));
+                })
+                .map(c -> {
+                    User other;
+                    UUID matchId = null;
+                    if (Boolean.TRUE.equals(c.getTeaserConversation())) {
+                        other = c.getTeaserNpcUser();
+                    } else {
+                        MatchEntity match = c.getMatch();
+                        if (match == null) return null;
+                        matchId = match.getId();
+                        other = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
+                    }
+
+                    if (other == null) return null;
+
+                    MessageEntity last = messageRepository.findTopByConversationOrderByCreatedAtDesc(c);
+                    String lastMessage = last != null ? last.getContent() : "";
+                    LocalDateTime lastAt = last != null ? last.getCreatedAt() : c.getCreatedAt();
+                    long unread = messageRepository.countByConversationAndSenderNotAndReadAtIsNull(c, user);
+                    return new ConversationItemResponse(c.getId(), matchId, other.getId(), other.getFirstName(),
+                            other.getPhotoUrls().isEmpty() ? null : other.getPhotoUrls().get(0),
+                            presenceService.isOnline(other), other.getLastSeen(), lastMessage, lastAt, unread,
+                            c.getTeaserConversation(), c.getTeaserProfileLocked(), c.getTeaserCtaText());
+                })
+                .filter(java.util.Objects::nonNull)
+                .sorted((a, b) -> b.lastMessageAt().compareTo(a.lastMessageAt()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -105,7 +129,14 @@ public class SocialService {
         if (content == null || content.trim().isBlank()) throw new RuntimeException("Message empty");
 
         Conversation conversation = getAuthorizedConversation(user, conversationId);
+        if (Boolean.TRUE.equals(conversation.getTeaserConversation())) {
+            throw new RuntimeException("Teaser sohbetlerde mesaj gönderimi premium ile açılır.");
+        }
+
         MatchEntity match = conversation.getMatch();
+        if (match == null) {
+            throw new RuntimeException("Conversation has no match context");
+        }
         User recipient = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
 
         if (clientMessageId != null && !clientMessageId.isBlank()) {
@@ -167,8 +198,17 @@ public class SocialService {
     @Transactional
     public void sendTyping(User user, UUID conversationId, boolean typing) {
         Conversation conversation = getAuthorizedConversation(user, conversationId);
-        MatchEntity match = conversation.getMatch();
-        User recipient = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
+        User recipient;
+        if (Boolean.TRUE.equals(conversation.getTeaserConversation())) {
+            recipient = conversation.getTeaserNpcUser();
+            if (recipient == null) {
+                return;
+            }
+        } else {
+            MatchEntity match = conversation.getMatch();
+            if (match == null) return;
+            recipient = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
+        }
 
         realtimePushService.sendToUser(recipient.getEmail(), "TYPING_UPDATED", Map.of(
                 "conversationId", conversationId,
@@ -193,8 +233,17 @@ public class SocialService {
         });
         messageRepository.saveAll(unread);
 
-        MatchEntity match = conversation.getMatch();
-        User other = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
+        User other;
+        if (Boolean.TRUE.equals(conversation.getTeaserConversation())) {
+            other = conversation.getTeaserNpcUser();
+            if (other == null) {
+                return;
+            }
+        } else {
+            MatchEntity match = conversation.getMatch();
+            if (match == null) return;
+            other = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
+        }
 
         realtimePushService.sendToUser(other.getEmail(), "MESSAGES_READ", Map.of(
                 "conversationId", conversationId,
@@ -252,10 +301,53 @@ public class SocialService {
     private Conversation getAuthorizedConversation(User user, UUID conversationId) {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
-        MatchEntity match = conversation.getMatch();
-        boolean authorized = match.getUserOne().getId().equals(user.getId()) || match.getUserTwo().getId().equals(user.getId());
+        boolean authorized;
+        if (Boolean.TRUE.equals(conversation.getTeaserConversation())) {
+            authorized = conversation.getTeaserOwnerUser() != null && conversation.getTeaserOwnerUser().getId().equals(user.getId());
+        } else {
+            MatchEntity match = conversation.getMatch();
+            authorized = match != null && (match.getUserOne().getId().equals(user.getId()) || match.getUserTwo().getId().equals(user.getId()));
+        }
         if (!authorized) throw new RuntimeException("Forbidden");
         return conversation;
+    }
+
+    private void seedNpcTeaserConversationIfNeeded(User user) {
+        if (Boolean.TRUE.equals(user.getNpc()) || !Boolean.TRUE.equals(user.getOnboardingCompleted())) {
+            return;
+        }
+
+        boolean exists = conversationRepository.findAll().stream().anyMatch(c ->
+                Boolean.TRUE.equals(c.getTeaserConversation())
+                        && c.getTeaserOwnerUser() != null
+                        && c.getTeaserOwnerUser().getId().equals(user.getId()));
+        if (exists) {
+            return;
+        }
+
+        User npc = userRepository.findByNpcTrue().stream().findFirst().orElse(null);
+        if (npc == null) {
+            return;
+        }
+
+        Conversation conversation = new Conversation();
+        conversation.setTeaserConversation(true);
+        conversation.setTeaserProfileLocked(true);
+        conversation.setTeaserCtaText("Profili görmek için premium al");
+        conversation.setTeaserOwnerUser(user);
+        conversation.setTeaserNpcUser(npc);
+        conversation.setUpdatedAt(LocalDateTime.now());
+        conversation = conversationRepository.save(conversation);
+
+        MessageEntity first = new MessageEntity();
+        first.setConversation(conversation);
+        first.setSender(npc);
+        first.setContent("Merhaba yenisin galiba… Ben Luna ✨ Profilimi görmek istersen premium ile kilidi açabilirsin.");
+        messageRepository.save(first);
+
+        createNotification(user, NotificationType.MESSAGE, "Luna'dan teaser mesaj", "Merhaba yenisin galiba… Profili görmek için premium al.");
+        createActivity(user, npc, ActivityType.MESSAGE_RECEIVED, "Luna sana teaser bir mesaj gönderdi.");
+        realtimePushService.sendToUser(user.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(user));
     }
 
     private MessageResponse toMessageResponse(MessageEntity message) {

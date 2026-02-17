@@ -88,6 +88,13 @@ export default function SettingScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          onPress={() => router.push('/premium-purchase' as any)}
+          className="mt-3 h-14 rounded-2xl items-center justify-center bg-[#FF5A5F]/20 border border-[#FF5A5F]/50"
+        >
+          <Text className="text-white font-bold text-base">Premium Satın Al</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={handleLogout}
           disabled={loggingOut}
           className={`mt-3 h-14 rounded-2xl items-center justify-center ${loggingOut ? 'bg-zinc-700' : 'bg-[#FF5A5F]'}`}
