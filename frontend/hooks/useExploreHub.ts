@@ -1,11 +1,17 @@
 import { useEffect, useMemo } from 'react';
 import { exploreHubSelectors } from '@/store/exploreHub/selectors';
 import { useExploreHubStore } from '@/store/exploreHub/context';
+import { useAuthSession } from '@/hooks/useAuthSession';
 
 export function useExploreHub() {
   const { state, load, refresh, invalidate, markNotificationAsRead, markThreadAsRead } = useExploreHubStore();
+  const { ready, authenticated } = useAuthSession();
 
   useEffect(() => {
+    if (!ready || !authenticated) {
+      return;
+    }
+
     const shouldAutoLoad =
       state.status === 'idle' ||
       ((state.status === 'success' || state.status === 'empty') && exploreHubSelectors.isStale(state));
@@ -13,7 +19,7 @@ export function useExploreHub() {
     if (shouldAutoLoad) {
       void load(false);
     }
-  }, [state.status, state.staleAt, load]);
+  }, [ready, authenticated, state.status, state.staleAt, load]);
 
   const counts = useMemo(
     () => ({

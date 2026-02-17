@@ -2,12 +2,14 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { captureException } from '@/services/monitoring';
+import { handleUnauthorizedSession } from '@/services/authSession';
 
 const INVALID_TOKEN_VALUES = new Set(['null', 'undefined', '']);
 const MONITOR_THROTTLE_MS = 60 * 1000;
 const monitorBuckets = new Map<string, number>();
 
 const isExploreHubPath = (url: string) => url.includes('/explore-hub');
+const isAuthEndpoint = (url: string) => /\/auth\/(login|register|verify|resend-code)/.test(url);
 
 export const sanitizeToken = (rawToken?: string | null) => {
   if (!rawToken) {
@@ -71,6 +73,10 @@ api.interceptors.response.use(
     const method = String(error?.config?.method || 'get').toUpperCase();
     const url = String(error?.config?.url || 'unknown');
     const status = Number(error?.response?.status || 0);
+
+    if ((status === 401 || status === 403) && !isAuthEndpoint(url)) {
+      void handleUnauthorizedSession();
+    }
 
     const isExpectedExploreHubThrottle = status === 429 && method === 'GET' && isExploreHubPath(url);
     const shouldSuppress429Noise = status === 429;
