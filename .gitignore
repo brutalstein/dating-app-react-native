@@ -1,0 +1,15 @@
+# Workspace-level ignores
+node_modules/
+
+# Frontend local Expo state and generated assets
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+
+# Backend build output
+backend/target/
+
+# DB ops local secrets/artifacts
+scripts/db/db.env
+scripts/db/backups/
+*.dump

@@ -158,6 +158,15 @@ Header: `Retry-After`.
 - Environment/config: `docs/environment.md`
 - Runbook: `docs/runbook.md`
 - E2E runbook: `docs/e2e-runbook.md`
+- DB migration/disaster runbook: `docs/db-migration-disaster-runbook.md`
+
+### DB backup/restore scriptleri (Windows)
+
+- Örnek env: `scripts/db/db.env.example` dosyasını `scripts/db/db.env` olarak kopyalayın.
+- Backup:
+  - `powershell -File .\scripts\db\backup-postgres.ps1 -EnvFile .\scripts\db\db.env`
+- Restore (dry-run):
+  - `powershell -File .\scripts\db\restore-postgres.ps1 -EnvFile .\scripts\db\db.env -BackupFile <dump> -DryRun`
 
 ## Yeni kapsam (6/7/8/9)
 
