@@ -1,7 +1,7 @@
 import "../global.css";
 import { Stack, useRouter } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import api, { sanitizeToken } from '@/api/config';
 import { ExploreHubProvider } from '@/store/exploreHub/context';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,7 +10,6 @@ import { setAuthSnapshot, subscribeAuthSession } from '@/services/authSession';
 
 export default function RootLayout() {
   const router = useRouter();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
     initMonitoring();
@@ -63,16 +62,11 @@ export default function RootLayout() {
         }
       } finally {
         setAuthSnapshot({ ready: true });
-        setIsCheckingAuth(false);
       }
     };
 
     checkAuth();
   }, [router]);
-
-  if (isCheckingAuth) {
-    return null;
-  }
 
   return (
     <SafeAreaProvider>
