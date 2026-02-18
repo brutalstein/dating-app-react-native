@@ -87,6 +87,7 @@ api.interceptors.response.use(
 
     const isExpectedExploreHubThrottle = status === 429 && isExploreHubRequest;
     const isExpectedExploreHubAuthTransition = (status === 401 || status === 403) && isExploreHubRequest;
+    const isExpectedAuthValidationError = status === 400 && isAuthEndpoint(url);
     const shouldSuppress429Noise = status === 429;
     const bucketKey = `${method}:${url}:${status}`;
     const now = Date.now();
@@ -94,6 +95,7 @@ api.interceptors.response.use(
     const shouldCapture =
       !isExpectedExploreHubThrottle &&
       !isExpectedExploreHubAuthTransition &&
+      !isExpectedAuthValidationError &&
       (!shouldSuppress429Noise || now - lastSentAt > MONITOR_THROTTLE_MS);
 
     if (shouldCapture) {
