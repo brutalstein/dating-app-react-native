@@ -21,6 +21,8 @@ export interface MessageThread {
   teaserConversation?: boolean;
   teaserProfileLocked?: boolean;
   teaserCtaText?: string;
+  isSystem?: boolean;
+  source?: 'conversation' | 'system_notification';
 }
 
 export interface NotificationItem {
@@ -44,13 +46,14 @@ export interface ExplainabilityItem {
 export interface ActivityItem {
   id: string;
   actor: ExploreUser;
-  type: 'profile_view' | 'super_like' | 'new_match' | 'reaction' | 'boost' | 'recommendation';
+  type: 'profile_view' | 'super_like' | 'new_match' | 'reaction' | 'boost' | 'recommendation' | 'system';
   summary: string;
   createdAt: string;
   score?: number;
   reason?: string;
   referenceId?: string;
   explainability?: ExplainabilityItem[];
+  isSystem?: boolean;
 }
 
 export interface ExploreHubPayload {

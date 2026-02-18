@@ -38,59 +38,128 @@ function parseRetryAfterSeconds(raw: unknown): number {
 }
 
 function mapPayload(data: any): ExploreHubPayload {
+  const notifications = (data.notifications ?? []).map((n: any) => ({
+    id: n.id,
+    type: String(n.type || 'system').toLowerCase(),
+    message: n.message,
+    createdAt: n.createdAt,
+    isRead: n.read,
+    priority: n.type === 'MATCH' ? 'high' : n.type === 'MESSAGE' ? 'medium' : 'low',
+    user: { id: 'system', fullName: n.title || 'Bloom' },
+  }));
+
+  const systemMessageThreads = notifications
+    .filter((n: any) => String(n.type).toLowerCase() === 'system')
+    .map((n: any) => ({
+      id: `system-${n.id}`,
+      user: { id: 'system', fullName: 'Bloom Sistem' },
+      title: 'Sistem Mesajı',
+      participantNames: ['Bloom Sistem'],
+      lastMessage: n.message,
+      lastMessageAt: n.createdAt,
+      unreadCount: n.isRead ? 0 : 1,
+      isOnline: false,
+      lastSeenAt: n.createdAt,
+      isPinned: true,
+      teaserConversation: false,
+      teaserProfileLocked: false,
+      teaserCtaText: undefined,
+      isSystem: true,
+      source: 'system_notification' as const,
+    }));
+
+  const devSystemMessageThreads = __DEV__ && systemMessageThreads.length === 0
+    ? [{
+        id: 'system-dev-preview',
+        user: { id: 'system', fullName: 'Bloom Sistem' },
+        title: 'Sistem Mesajı (Test)',
+        participantNames: ['Bloom Sistem'],
+        lastMessage: 'Test modu: Sistem kaynaklı mesajlar burada görünür.',
+        lastMessageAt: new Date().toISOString(),
+        unreadCount: 0,
+        isOnline: false,
+        lastSeenAt: new Date().toISOString(),
+        isPinned: true,
+        teaserConversation: false,
+        teaserProfileLocked: false,
+        teaserCtaText: undefined,
+        isSystem: true,
+        source: 'system_notification' as const,
+      }]
+    : [];
+
   return {
-    messages: (data.messages ?? []).map((m: any) => ({
-      id: m.conversationId,
-      user: {
-        id: m.otherUserId,
-        fullName: m.otherUserName,
-        avatarUrl: m.otherUserAvatar,
-      },
-      title: m.conversationTitle ?? m.title ?? undefined,
-      participantNames: Array.isArray(m.participantNames)
-        ? m.participantNames
-        : Array.isArray(m.participants)
-        ? m.participants
-            .map((participant: any) => participant?.name ?? participant?.fullName)
-            .filter(Boolean)
-        : undefined,
-      lastMessage: m.lastMessage,
-      lastMessageAt: m.lastMessageAt,
-      unreadCount: m.unreadCount,
-      isOnline: m.online,
-      lastSeenAt: m.lastSeenAt,
-      teaserConversation: Boolean(m.teaserConversation),
-      teaserProfileLocked: Boolean(m.teaserProfileLocked),
-      teaserCtaText: m.teaserCtaText,
-    })),
-    notifications: (data.notifications ?? []).map((n: any) => ({
-      id: n.id,
-      type: String(n.type || 'system').toLowerCase(),
-      message: n.message,
-      createdAt: n.createdAt,
-      isRead: n.read,
-      priority: n.type === 'MATCH' ? 'high' : n.type === 'MESSAGE' ? 'medium' : 'low',
-      user: { id: 'system', fullName: n.title || 'Bloom' },
-    })),
-    activities: (data.activities ?? []).map((a: any) => ({
-      id: a.id,
-      type:
-        a.type === 'MATCH_CREATED'
-          ? 'new_match'
-          : a.type === 'LIKE_RECEIVED'
-          ? 'reaction'
-          : a.type === 'RECOMMENDATION_FOUND'
-          ? 'recommendation'
-          : 'profile_view',
-      summary: a.summary,
-      createdAt: a.createdAt,
-      score: typeof a.score === 'number' ? a.score : undefined,
-      reason: a.reason ?? undefined,
-      referenceId: a.referenceId ?? undefined,
-      explainability: a.explainability ?? [],
-      actor: { id: a.actorId ?? 'system', fullName: a.actorName ?? 'Bloom', avatarUrl: a.actorAvatar ?? undefined },
-    })),
-    unreadMessages: data.unreadMessages ?? 0,
+    messages: [
+      ...(data.messages ?? []).map((m: any) => ({
+        id: m.conversationId,
+        user: {
+          id: m.otherUserId,
+          fullName: m.otherUserName,
+          avatarUrl: m.otherUserAvatar,
+        },
+        title: m.conversationTitle ?? m.title ?? undefined,
+        participantNames: Array.isArray(m.participantNames)
+          ? m.participantNames
+          : Array.isArray(m.participants)
+          ? m.participants
+              .map((participant: any) => participant?.name ?? participant?.fullName)
+              .filter(Boolean)
+          : undefined,
+        lastMessage: m.lastMessage,
+        lastMessageAt: m.lastMessageAt,
+        unreadCount: m.unreadCount,
+        isOnline: m.online,
+        lastSeenAt: m.lastSeenAt,
+        teaserConversation: Boolean(m.teaserConversation),
+        teaserProfileLocked: Boolean(m.teaserProfileLocked),
+        teaserCtaText: m.teaserCtaText,
+        isSystem: false,
+        source: 'conversation' as const,
+      })),
+      ...systemMessageThreads,
+      ...devSystemMessageThreads,
+    ],
+    notifications,
+    activities: [
+      ...(data.activities ?? []).map((a: any) => {
+        const mappedType =
+          a.type === 'MATCH_CREATED'
+            ? 'new_match'
+            : a.type === 'LIKE_RECEIVED'
+            ? 'reaction'
+            : a.type === 'RECOMMENDATION_FOUND'
+            ? 'recommendation'
+            : a.type === 'MESSAGE_RECEIVED'
+            ? 'reaction'
+            : 'system';
+
+        const isSystem = mappedType === 'system' || !a.actorId;
+
+        return {
+          id: a.id,
+          type: mappedType,
+          summary: a.summary,
+          createdAt: a.createdAt,
+          score: typeof a.score === 'number' ? a.score : undefined,
+          reason: a.reason ?? undefined,
+          referenceId: a.referenceId ?? undefined,
+          explainability: a.explainability ?? [],
+          actor: { id: a.actorId ?? 'system', fullName: a.actorName ?? 'Bloom Sistem', avatarUrl: a.actorAvatar ?? undefined },
+          isSystem,
+        };
+      }),
+      ...(__DEV__
+        ? [{
+            id: 'system-activity-dev-preview',
+            type: 'system',
+            summary: 'Test modu: Sistem aktiviteleri burada listelenir.',
+            createdAt: new Date().toISOString(),
+            actor: { id: 'system', fullName: 'Bloom Sistem' },
+            isSystem: true,
+          }]
+        : []),
+    ],
+    unreadMessages: data.unreadMessages ?? [...systemMessageThreads, ...devSystemMessageThreads].reduce((acc: number, item: any) => acc + item.unreadCount, 0),
     unreadNotifications: data.unreadNotifications ?? 0,
   } as any;
 }

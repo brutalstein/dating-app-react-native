@@ -7,7 +7,7 @@ import { Avatar, HubEmptyState, HubErrorState, HubLoadingState, hubStyles } from
 import { formatRelativeTime } from '@/components/explore/formatters';
 import { MessageThread } from '@/types/exploreHub';
 
-type MessageFilter = 'all' | 'unread';
+type MessageFilter = 'all' | 'unread' | 'system';
 
 const FALLBACK_CONVERSATION_NAME = 'İsimsiz sohbet';
 
@@ -45,7 +45,11 @@ export default function MessagesScreen() {
   const filteredMessages = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return messages
-      .filter((item) => (filter === 'unread' ? item.unreadCount > 0 : true))
+      .filter((item) => {
+        if (filter === 'unread') return item.unreadCount > 0;
+        if (filter === 'system') return Boolean(item.isSystem);
+        return true;
+      })
       .filter((item) => {
         if (!normalized) return true;
         return (
@@ -64,8 +68,17 @@ export default function MessagesScreen() {
     ({ item }: { item: MessageThread }) => {
       const displayName = resolveConversationName(item);
 
+      const isSystem = Boolean(item.isSystem);
+
       return (
-        <TouchableOpacity style={hubStyles.card} onPress={() => { markThreadAsRead(item.id); router.push(`/chat/${item.id}` as any); }} activeOpacity={0.9}>
+        <TouchableOpacity
+          style={hubStyles.card}
+          onPress={() => {
+            if (isSystem) return;
+            markThreadAsRead(item.id);
+            router.push(`/chat/${item.id}` as any);
+          }}
+          activeOpacity={isSystem ? 1 : 0.9}>
           <View>
             <Avatar name={displayName} uri={item.user.avatarUrl} />
             {item.isOnline && (
@@ -85,11 +98,16 @@ export default function MessagesScreen() {
             )}
           </View>
           <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Text style={hubStyles.title}>{displayName}</Text>
               {item.isPinned && <Ionicons name="bookmark" size={13} color="#FF5A5F" />}
+              {isSystem && (
+                <View style={{ borderRadius: 999, backgroundColor: 'rgba(59,130,246,0.16)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.35)', paddingHorizontal: 8, paddingVertical: 2 }}>
+                  <Text style={{ color: '#bfdbfe', fontSize: 10, fontWeight: '700' }}>SİSTEM</Text>
+                </View>
+              )}
             </View>
-            <Text style={[hubStyles.subtitle, { fontSize: 11 }]}>{item.isOnline ? 'online' : item.lastSeenAt ? `son görülme ${formatRelativeTime(item.lastSeenAt)}` : 'offline'}</Text>
+            <Text style={[hubStyles.subtitle, { fontSize: 11 }]}>{isSystem ? 'Sistem bildirimi' : item.isOnline ? 'online' : item.lastSeenAt ? `son görülme ${formatRelativeTime(item.lastSeenAt)}` : 'offline'}</Text>
             <Text
               style={[hubStyles.subtitle, { color: item.unreadCount > 0 ? '#d1d5db' : '#9ca3af' }]}
               numberOfLines={1}>
@@ -149,6 +167,7 @@ export default function MessagesScreen() {
           {([
             { key: 'all', label: 'Tümü' },
             { key: 'unread', label: 'Okunmamış' },
+            { key: 'system', label: 'Sistem' },
           ] as { key: MessageFilter; label: string }[]).map((item) => (
             <TouchableOpacity
               key={item.key}

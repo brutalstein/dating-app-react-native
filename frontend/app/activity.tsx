@@ -8,7 +8,7 @@ import { formatRelativeTime } from '@/components/explore/formatters';
 import { ActivityItem } from '@/types/exploreHub';
 import { proactiveService } from '@/services/proactiveService';
 
-type ActivityFilter = 'all' | 'highIntent';
+type ActivityFilter = 'all' | 'highIntent' | 'system';
 
 const activityIconMap: Record<ActivityItem['type'], keyof typeof Ionicons.glyphMap> = {
   profile_view: 'eye-outline',
@@ -17,6 +17,7 @@ const activityIconMap: Record<ActivityItem['type'], keyof typeof Ionicons.glyphM
   reaction: 'happy-outline',
   boost: 'flash-outline',
   recommendation: 'sparkles-outline',
+  system: 'shield-checkmark-outline',
 };
 
 export default function ActivityScreen() {
@@ -26,6 +27,7 @@ export default function ActivityScreen() {
 
   const filteredActivities = useMemo(() => {
     if (filter === 'all') return activities;
+    if (filter === 'system') return activities.filter((item) => Boolean(item.isSystem));
     return activities.filter((item) => (item.score ?? 0) >= 80);
   }, [activities, filter]);
 
@@ -47,9 +49,14 @@ export default function ActivityScreen() {
       <View style={hubStyles.card}>
         <Avatar name={item.actor.fullName} uri={item.actor.avatarUrl} size={48} />
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Text style={hubStyles.title}>{item.actor.fullName}</Text>
-            <Ionicons name={activityIconMap[item.type]} size={14} color="#FF5A5F" />
+            <Ionicons name={activityIconMap[item.type]} size={14} color={item.isSystem ? '#60a5fa' : '#FF5A5F'} />
+            {item.isSystem && (
+              <View style={{ borderRadius: 999, backgroundColor: 'rgba(59,130,246,0.16)', borderWidth: 1, borderColor: 'rgba(59,130,246,0.35)', paddingHorizontal: 8, paddingVertical: 2 }}>
+                <Text style={{ color: '#bfdbfe', fontSize: 10, fontWeight: '700' }}>SİSTEM</Text>
+              </View>
+            )}
           </View>
           <Text style={hubStyles.subtitle}>{item.summary}</Text>
           {item.reason ? <Text style={[hubStyles.subtitle, { marginTop: 4, color: '#d1d5db' }]}>{item.reason}</Text> : null}
@@ -111,6 +118,7 @@ export default function ActivityScreen() {
         {([
           { key: 'all', label: 'Tümü' },
           { key: 'highIntent', label: 'Yüksek Niyet' },
+          { key: 'system', label: 'Sistem' },
         ] as { key: ActivityFilter; label: string }[]).map((item) => (
           <TouchableOpacity
             key={item.key}
