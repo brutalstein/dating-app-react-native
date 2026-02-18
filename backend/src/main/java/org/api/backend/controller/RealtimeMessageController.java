@@ -30,7 +30,16 @@ public class RealtimeMessageController {
             var user = userRepository.findByEmail(principal.getName()).orElseThrow();
             return socialService.sendMessage(user, request.conversationId(), request.content(), request.clientMessageId());
         } catch (Exception e) {
-            log.error("event=message_send_failed actor={} conversationId={} error={}", principal != null ? principal.getName() : "unknown", request.conversationId(), e.getMessage());
+            String actor = principal != null ? principal.getName() : "unknown";
+            String errorMessage = (e.getMessage() == null || e.getMessage().isBlank())
+                    ? "Message send failed."
+                    : e.getMessage();
+
+            if (e instanceof java.util.NoSuchElementException || e instanceof IllegalArgumentException) {
+                log.warn("event=message_send_rejected actor={} conversationId={} error={}", actor, request.conversationId(), errorMessage);
+            } else {
+                log.error("event=message_send_failed actor={} conversationId={} error={}", actor, request.conversationId(), errorMessage);
+            }
             throw e;
         }
     }

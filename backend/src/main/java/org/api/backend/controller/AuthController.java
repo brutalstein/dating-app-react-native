@@ -13,6 +13,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Locale;
 import java.util.Map;
 
 @Slf4j
@@ -130,8 +131,34 @@ public class AuthController {
 
     private ResponseEntity<?> handleAuthFailure(String action, String ip, String email, Exception e) {
         abuseProtectionService.registerAuthFailure(ip, email);
-        log.warn("event=auth_failed action={} ip={} email={} error={}", action, ip, email, e.getMessage());
-        return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+
+        String errorMessage = (e.getMessage() == null || e.getMessage().isBlank())
+                ? "Authentication request failed."
+                : e.getMessage();
+        if (isExpectedAuthFailure(errorMessage)) {
+            log.info("event=auth_failed_expected action={} ip={} email={} error={}", action, ip, email, errorMessage);
+        } else {
+            log.warn("event=auth_failed action={} ip={} email={} error={}", action, ip, email, errorMessage);
+        }
+
+        return ResponseEntity.badRequest().body(Map.of("message", errorMessage));
+    }
+
+    private boolean isExpectedAuthFailure(String errorMessage) {
+        if (errorMessage == null || errorMessage.isBlank()) {
+            return false;
+        }
+
+        String normalized = errorMessage.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("invalid email or password")
+                || normalized.contains("no account found")
+                || normalized.contains("pending email verification")
+                || normalized.contains("not verified")
+                || normalized.contains("verification code is invalid")
+                || normalized.contains("verification code has expired")
+                || normalized.contains("already verified")
+                || normalized.contains("no pending registration found")
+                || normalized.contains("please provide a valid university email");
     }
 
     private String resolveClientIp(HttpServletRequest request) {
