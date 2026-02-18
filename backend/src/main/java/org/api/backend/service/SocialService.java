@@ -380,7 +380,7 @@ public class SocialService {
 
         createNotification(user, NotificationType.MESSAGE, "Luna'dan teaser mesaj", "Merhaba yenisin galiba… Profili görmek için premium al.");
         createActivity(user, npc, ActivityType.MESSAGE_RECEIVED, "Luna sana teaser bir mesaj gönderdi.");
-        realtimePushService.sendToUser(user.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(user));
+        // Avoid recursive explore-hub rebuild while listConversations/buildExploreHub is in progress.
     }
 
     private MessageResponse toMessageResponse(MessageEntity message) {
