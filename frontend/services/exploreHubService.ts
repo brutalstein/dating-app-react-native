@@ -91,7 +91,7 @@ function mapPayload(data: any): ExploreHubPayload {
   return {
     messages: [
       ...(data.messages ?? []).map((m: any) => ({
-        id: m.conversationId,
+        id: m.conversationId ?? m.id,
         user: {
           id: m.otherUserId,
           fullName: m.otherUserName,

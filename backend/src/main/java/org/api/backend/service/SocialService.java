@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.api.backend.dto.*;
 import org.api.backend.entity.*;
 import org.api.backend.repos.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +31,15 @@ public class SocialService {
     private final SafetyService safetyService;
     private final PremiumService premiumService;
     private final ObjectMapper objectMapper;
+    @Value("${bloom.chat.dummy.enabled:false}")
+    private boolean dummyChatEnabled;
+
     private final ThreadLocal<Boolean> teaserSeedInProgress = ThreadLocal.withInitial(() -> false);
+    private static final List<String> DUMMY_AUTO_REPLIES = List.of(
+            "Süper ✨ Mesajını aldım. Test akışı aktif.",
+            "Bu bir deterministic cevap: ikinci mesajında da buradayım 👀",
+            "Tamamdır! Realtime akış düzgün görünüyor 🚀"
+    );
 
     @Transactional
     public LikeResponse sendLike(User sender, UUID targetUserId) {
@@ -88,8 +97,9 @@ public class SocialService {
         return new LikeResponse(true, match.getId(), conversation.getId(), "It's a match");
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ConversationItemResponse> listConversations(User user) {
+        seedNpcTeaserConversationIfNeeded(user);
         return conversationRepository.findAll().stream()
                 .filter(c -> {
                     if (Boolean.TRUE.equals(c.getTeaserConversation())) {
@@ -141,17 +151,26 @@ public class SocialService {
         if (content == null || content.trim().isBlank()) throw new RuntimeException("Message empty");
 
         Conversation conversation = getAuthorizedConversation(user, conversationId);
-        if (Boolean.TRUE.equals(conversation.getTeaserConversation()) && !premiumService.hasFeature(user, "profile_unlock")) {
-            throw new RuntimeException("Teaser sohbetlerde mesaj gönderimi premium ile açılır.");
-        }
+        boolean teaserConversation = Boolean.TRUE.equals(conversation.getTeaserConversation());
 
-        MatchEntity match = conversation.getMatch();
-        if (match == null) {
-            throw new RuntimeException("Conversation has no match context");
-        }
-        User recipient = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
-        if (safetyService.isBlockedEitherDirection(user, recipient)) {
-            throw new RuntimeException("Bu kullanıcı ile mesajlaşma engellenmiş.");
+        User recipient;
+        if (teaserConversation) {
+            if (!dummyChatEnabled) {
+                throw new RuntimeException("Teaser sohbetlerde mesaj gönderimi dev dummy chat açıkken kullanılabilir.");
+            }
+            recipient = conversation.getTeaserNpcUser();
+            if (recipient == null) {
+                throw new RuntimeException("Dummy recipient not found");
+            }
+        } else {
+            MatchEntity match = conversation.getMatch();
+            if (match == null) {
+                throw new RuntimeException("Conversation has no match context");
+            }
+            recipient = match.getUserOne().getId().equals(user.getId()) ? match.getUserTwo() : match.getUserOne();
+            if (safetyService.isBlockedEitherDirection(user, recipient)) {
+                throw new RuntimeException("Bu kullanıcı ile mesajlaşma engellenmiş.");
+            }
         }
 
         if (clientMessageId != null && !clientMessageId.isBlank()) {
@@ -183,6 +202,10 @@ public class SocialService {
         realtimePushService.sendToUser(user.getEmail(), "MESSAGE_SENT", response);
         realtimePushService.sendToUser(recipient.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(recipient));
         realtimePushService.sendToUser(user.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(user));
+
+        if (teaserConversation && dummyChatEnabled) {
+            sendDummyAutoReply(conversation, user, recipient);
+        }
 
         return response;
     }
@@ -345,7 +368,7 @@ public class SocialService {
     }
 
     private void seedNpcTeaserConversationIfNeeded(User user) {
-        if (Boolean.TRUE.equals(teaserSeedInProgress.get())) {
+        if (!dummyChatEnabled || Boolean.TRUE.equals(teaserSeedInProgress.get())) {
             return;
         }
 
@@ -370,8 +393,8 @@ public class SocialService {
 
             Conversation conversation = new Conversation();
             conversation.setTeaserConversation(true);
-            conversation.setTeaserProfileLocked(true);
-            conversation.setTeaserCtaText("Profili görmek için premium al");
+            conversation.setTeaserProfileLocked(false);
+            conversation.setTeaserCtaText("Dev dummy chat aktif");
             conversation.setTeaserOwnerUser(user);
             conversation.setTeaserNpcUser(npc);
             conversation.setUpdatedAt(LocalDateTime.now());
@@ -380,15 +403,46 @@ public class SocialService {
             MessageEntity first = new MessageEntity();
             first.setConversation(conversation);
             first.setSender(npc);
-            first.setContent("Merhaba yenisin galiba… Ben Luna ✨ Profilimi görmek istersen premium ile kilidi açabilirsin.");
+            first.setContent("Selam! Ben Luna 🤖 Bu konuşma dev ortamında dummy mesaj akışını test etmek için hazırlandı.");
             messageRepository.save(first);
 
-            createNotification(user, NotificationType.MESSAGE, "Luna'dan teaser mesaj", "Merhaba yenisin galiba… Profili görmek için premium al.");
-            createActivity(user, npc, ActivityType.MESSAGE_RECEIVED, "Luna sana teaser bir mesaj gönderdi.");
+            createNotification(user, NotificationType.MESSAGE, "Luna'dan dummy mesaj", "Dummy sohbet akışı başlatıldı.");
+            createActivity(user, npc, ActivityType.MESSAGE_RECEIVED, "Luna sana dummy bir mesaj gönderdi.");
             // Avoid recursive explore-hub rebuild while listConversations/buildExploreHub is in progress.
         } finally {
             teaserSeedInProgress.remove();
         }
+    }
+
+    private void sendDummyAutoReply(Conversation conversation, User owner, User npc) {
+        long ownerMessages = messageRepository.findByConversationOrderByCreatedAtAsc(conversation).stream()
+                .filter(m -> m.getSender() != null && owner.getId().equals(m.getSender().getId()))
+                .count();
+
+        int replyIndex = (int) Math.max(0, Math.min(DUMMY_AUTO_REPLIES.size() - 1, ownerMessages - 1));
+
+        MessageEntity reply = new MessageEntity();
+        reply.setConversation(conversation);
+        reply.setSender(npc);
+        reply.setContent(DUMMY_AUTO_REPLIES.get(replyIndex));
+        if (presenceService.isOnline(owner)) {
+            reply.setDeliveredAt(LocalDateTime.now());
+        }
+        reply = messageRepository.save(reply);
+
+        conversation.setUpdatedAt(LocalDateTime.now());
+        conversationRepository.save(conversation);
+
+        createNotification(owner, NotificationType.MESSAGE, "Luna", reply.getContent());
+        createActivity(owner, npc, ActivityType.MESSAGE_RECEIVED, "Luna sana otomatik cevap verdi.");
+        pushNotificationService.notifyEvent(owner, "Yeni mesaj", npc.getFirstName() + ": " + reply.getContent(),
+                Map.of("event", "MESSAGE_RECEIVED", "conversationId", conversation.getId().toString()));
+
+        var replyResponse = toMessageResponse(reply);
+        realtimePushService.sendToUser(owner.getEmail(), "MESSAGE_RECEIVED", replyResponse);
+        realtimePushService.sendToUser(npc.getEmail(), "MESSAGE_SENT", replyResponse);
+        realtimePushService.sendToUser(owner.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(owner));
+        realtimePushService.sendToUser(npc.getEmail(), "EXPLORE_HUB_UPDATED", buildExploreHub(npc));
     }
 
     private MessageResponse toMessageResponse(MessageEntity message) {

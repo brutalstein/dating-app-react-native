@@ -78,6 +78,10 @@ export default function MessagesScreen() {
               Alert.alert('Sistem bildirimi', item.lastMessage || 'Detay bilgisi bulunamadı.');
               return;
             }
+            if (!item.id) {
+              Alert.alert('Sohbet açılamadı', 'Geçersiz konuşma kimliği. Lütfen yenileyip tekrar deneyin.');
+              return;
+            }
             markThreadAsRead(item.id);
             router.push(`/chat/${item.id}` as any);
           }}
@@ -203,7 +207,7 @@ export default function MessagesScreen() {
         <FlatList
           data={filteredMessages}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => item.id || `thread-${index}`}
           contentContainerStyle={hubStyles.listContent}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
