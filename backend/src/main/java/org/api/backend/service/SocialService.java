@@ -90,8 +90,6 @@ public class SocialService {
 
     @Transactional(readOnly = true)
     public List<ConversationItemResponse> listConversations(User user) {
-        seedNpcTeaserConversationIfNeeded(user);
-
         return conversationRepository.findAll().stream()
                 .filter(c -> {
                     if (Boolean.TRUE.equals(c.getTeaserConversation())) {
