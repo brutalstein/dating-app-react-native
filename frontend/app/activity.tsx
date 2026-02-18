@@ -21,7 +21,7 @@ const activityIconMap: Record<ActivityItem['type'], keyof typeof Ionicons.glyphM
 
 export default function ActivityScreen() {
   const router = useRouter();
-  const { status, error, activities, load, refresh, isRefreshing } = useExploreHub();
+  const { status, error, activities, load, refresh, isRefreshing, authReady, authenticated } = useExploreHub();
   const [filter, setFilter] = useState<ActivityFilter>('all');
 
   const filteredActivities = useMemo(() => {
@@ -53,6 +53,17 @@ export default function ActivityScreen() {
           </View>
           <Text style={hubStyles.subtitle}>{item.summary}</Text>
           {item.reason ? <Text style={[hubStyles.subtitle, { marginTop: 4, color: '#d1d5db' }]}>{item.reason}</Text> : null}
+          {item.explainability && item.explainability.length > 0 ? (
+            <View style={{ marginTop: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 8, gap: 6 }}>
+              <Text style={{ color: '#f3f4f6', fontSize: 11, fontWeight: '700' }}>Neden önerildi?</Text>
+              {item.explainability.slice(0, 3).map((entry) => (
+                <View key={entry.key} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                  <Text style={{ color: '#d1d5db', fontSize: 11, flex: 1 }}>{entry.label}: {entry.detail}</Text>
+                  <Text style={{ color: '#fda4af', fontSize: 11, fontWeight: '700' }}>{entry.score}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
             {item.type === 'recommendation' && item.referenceId ? (
               <>
@@ -117,7 +128,11 @@ export default function ActivityScreen() {
         ))}
       </View>
 
-      {status === 'loading' && filteredActivities.length === 0 ? (
+      {!authReady ? (
+        <HubLoadingState />
+      ) : !authenticated ? (
+        <HubEmptyState title="Giriş yapman gerekiyor" subtitle="Aktivitelerini görmek için hesabına giriş yap." />
+      ) : status === 'loading' && filteredActivities.length === 0 ? (
         <HubLoadingState />
       ) : status === 'error' ? (
         <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={() => load(true)} />

@@ -28,4 +28,5 @@ export type ExploreHubAction =
   | { type: 'MARK_NOTIFICATION_READ_OPTIMISTIC'; payload: { id: string } }
   | { type: 'MARK_NOTIFICATION_READ_ROLLBACK'; payload: { snapshot: NotificationItem[] } }
   | { type: 'APPLY_REALTIME_PAYLOAD'; payload: { data: ExploreHubPayload } }
-  | { type: 'INVALIDATE_CACHE' };
+  | { type: 'INVALIDATE_CACHE' }
+  | { type: 'RESET_FOR_AUTH' };

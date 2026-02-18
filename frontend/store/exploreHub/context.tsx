@@ -44,6 +44,18 @@ export function ExploreHubProvider({ children }: { children: React.ReactNode }) 
     stateRef.current = state;
   }, [state]);
 
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    if (!authenticated) {
+      exploreHubService.invalidateCache();
+      dispatch({ type: 'RESET_FOR_AUTH' });
+      disconnectRealtime();
+    }
+  }, [ready, authenticated]);
+
   const load = useCallback(async (forceRefresh = false) => {
     if (!ready || !authenticated) {
       return;

@@ -38,7 +38,7 @@ const resolveConversationName = (thread: MessageThread) => {
 
 export default function MessagesScreen() {
   const router = useRouter();
-  const { status, error, messages, load, refresh, isRefreshing, markThreadAsRead } = useExploreHub();
+  const { status, error, messages, load, refresh, isRefreshing, markThreadAsRead, authReady, authenticated } = useExploreHub();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<MessageFilter>('all');
 
@@ -167,7 +167,11 @@ export default function MessagesScreen() {
         </View>
       </View>
 
-      {status === 'loading' && filteredMessages.length === 0 ? (
+      {!authReady ? (
+        <HubLoadingState />
+      ) : !authenticated ? (
+        <HubEmptyState title="Giriş yapman gerekiyor" subtitle="Mesajlarını görmek için hesabına giriş yap." />
+      ) : status === 'loading' && filteredMessages.length === 0 ? (
         <HubLoadingState />
       ) : status === 'error' ? (
         <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={() => load(true)} />

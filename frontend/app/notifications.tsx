@@ -20,7 +20,7 @@ const priorityOrder = { high: 0, medium: 1, low: 2 };
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { status, error, notifications, load, refresh, isRefreshing, markNotificationAsRead } = useExploreHub();
+  const { status, error, notifications, load, refresh, isRefreshing, markNotificationAsRead, authReady, authenticated } = useExploreHub();
 
   const sections = useMemo(() => {
     const grouped: Record<string, NotificationItem[]> = {
@@ -54,7 +54,11 @@ export default function NotificationsScreen() {
         <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800' }}>Bildirimler</Text>
       </View>
 
-      {status === 'loading' && sections.length === 0 ? (
+      {!authReady ? (
+        <HubLoadingState />
+      ) : !authenticated ? (
+        <HubEmptyState title="Giriş yapman gerekiyor" subtitle="Bildirimlerini görmek için hesabına giriş yap." />
+      ) : status === 'loading' && sections.length === 0 ? (
         <HubLoadingState />
       ) : status === 'error' ? (
         <HubErrorState message={error ?? 'Bilinmeyen hata'} onRetry={() => load(true)} />

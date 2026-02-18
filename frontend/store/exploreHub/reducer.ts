@@ -102,6 +102,11 @@ export function exploreHubReducer(state: ExploreHubState, action: ExploreHubActi
         staleAt: 0,
       };
 
+    case 'RESET_FOR_AUTH':
+      return {
+        ...initialState,
+      };
+
     default:
       return state;
   }
