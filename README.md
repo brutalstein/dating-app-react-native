@@ -1,107 +1,83 @@
-# Bloom Expo Monorepo (Frontend + Backend)
+# Bloom Dating App Monorepo
 
-Bu repo Bloom dating uygulamasının **Expo frontend** + **Spring Boot backend** kaynak kodlarını içerir.
+Bloom is a full-stack dating app monorepo with:
+- **Frontend:** Expo + React Native + TypeScript
+- **Backend:** Spring Boot + WebSocket/STOMP + PostgreSQL
 
-## Seçilen realtime mimari
+This repository is prepared for open-source collaboration.
 
-- Backend: **Spring WebSocket + STOMP**
-- Frontend: **Expo + @stomp/stompjs**
-- Auth: JWT (REST + socket CONNECT header)
-- Realtime DB zorunlu değil; server push mimarisiyle canlı akış sağlanıyor.
+---
 
-## Ek gereksinim: WhatsApp-benzeri mesaj UX
+## Tech Stack
 
-Bu sürümde aşağıdakiler entegre edildi:
+### Frontend
+- Expo (React Native)
+- Expo Router
+- TypeScript
+- Axios
+- STOMP client for realtime events
 
-- **Typing indicator:** `TYPING` event’i ile anlık `yazıyor...`
-- **Mesaj durumları:** `sending / sent / delivered / read / failed`
-- **Durum görünürlüğü:** chat balonunda ikon/etiket ile net gösterim
-- **Retry:** failed mesaja dokununca tekrar gönderim
-- **Read receipt senkronu:** `MESSAGES_READ` event’i iki tarafı eşitler
-- **Delivery senkronu:** alıcı `chat.delivered` ack gönderir, gönderici `MESSAGE_DELIVERED` alır
-- **Online / last seen:** websocket presence + `lastSeen` ile conversation listesi
+### Backend
+- Java 17+
+- Spring Boot 4
+- Spring Security (JWT)
+- Spring Data JPA (Hibernate)
+- Spring WebSocket + STOMP
+- Flyway migrations
 
-## Veri katmanı
+### Database
+- PostgreSQL
 
-Eklenen ana tablolar/entity’ler:
+---
 
-- `likes` (`LikeInteraction`)
-- `matches` (`MatchEntity`)
-- `conversations` (`Conversation`)
-- `messages` (`MessageEntity`)
-- `notifications` (`NotificationEntity`)
-- `activities` (`ActivityEntity`)
-- `user_preference_profiles` (`UserPreferenceProfile`)
-- `user_preference_criteria` (`PreferenceCriterion`)
-- `recommendations` (`RecommendationEntity`)
+## Realtime Architecture
 
-Mesaj durum alanları:
-- `messages.client_message_id`
-- `messages.delivered_at`
-- `messages.read_at`
-
-Migration:
-- `backend/src/main/resources/db/migration/V1__realtime_social_chat.sql`
-
-## API ve socket yüzeyi
-
-### REST
-- `POST /api/likes/{targetUserId}`
-- `GET /api/explore-hub`
-- `GET /api/conversations`
-- `GET /api/conversations/{conversationId}/messages`
-- `POST /api/conversations/{conversationId}/read`
-- `GET /api/recommendations/preferences`
-- `PUT /api/recommendations/preferences`
-- `POST /api/recommendations/scan`
-- `POST /api/recommendations/{recommendationId}/action` (`LIKE` / `PASS`)
-
-### WebSocket/STOMP
-- Endpoint: `/ws`
-- Publish:
+Realtime messaging and social updates are server-authoritative:
+- WebSocket endpoint: `/ws`
+- STOMP publish:
   - `/app/chat.send`
   - `/app/chat.typing`
   - `/app/chat.delivered`
 - User queue: `/user/queue/events`
 
-Server eventleri:
+Typical events:
 - `LIKE_RECEIVED`
 - `MATCH_CREATED`
 - `MESSAGE_RECEIVED`
 - `MESSAGE_SENT`
 - `MESSAGE_DELIVERED`
 - `MESSAGES_READ`
-- `TYPING`
 - `EXPLORE_HUB_UPDATED`
 
-## Frontend optimizasyon notu (MVP+)
+---
 
-- Login ekranındaki ağır `pet-lover.gif` yerine optimize edilmiş `pet-lover.jpg` kullanılır.
-- Görsel `expo-image` ile cache (`memory-disk`) + kısa transition ile yüklenir.
-- Bu değişiklik ilgili asset yükünü ~2.06MB -> ~0.04MB seviyesine indirir (aynı ekran akışını koruyarak).
+## Project Structure
 
-## Çalıştırma
+- `frontend/` → Expo application
+- `backend/` → Spring Boot API + realtime services
+- `docs/` → operational and architecture docs
+- `scripts/` → helper scripts (including DB backup/restore)
 
-### Backend
+---
+
+## Quick Start
+
+### 1) Backend
 ```bash
 cd backend
 ./mvnw spring-boot:run
 ```
 
-### Frontend
+### 2) Frontend
 ```bash
 cd frontend
 npm install
-npm start
+npx expo start
 ```
 
-## Doğrulama
+---
 
-### Backend
-```bash
-cd backend
-./mvnw test
-```
+## Build & Validation
 
 ### Frontend
 ```bash
@@ -111,82 +87,48 @@ npm run lint
 npm run build:web
 ```
 
-## AI Proaktif Eşleşme Asistanı
-
-Akış:
-1. Kullanıcı `Settings > AI Proaktif Eşleşme Asistanı` ekranından kriterlerini (`must-have / nice-to-have / weight`) kaydeder.
-2. `Proaktif Ara` açıkken backend async tarama başlatır.
-3. Deterministik scoring motoru (kural + ağırlık + ortak ilgi bonusu) uygun adayları seçer.
-4. Öneri `activities` akışına `Sana özel bulundu` formatında düşer (`reason`, `score`, `referenceId`).
-5. Activity ekranından `Beğen / Geç` aksiyonu gönderilir.
-
-## Smoke test
-
-Kısa feature smoke:
-1. En az 2 onboarding tamamlamış kullanıcı oluştur.
-2. Kullanıcı-A ile `proactive-preferences` ekranında kriter seç + `Proaktif Ara` aç.
-3. `Şimdi Tara` butonuna bas.
-4. Activity ekranında `Sana özel bulundu` kartı, `reason` metni ve skor görünmeli.
-5. `Beğen` veya `Geç` sonrası backend `recommendations.status` güncellenmeli.
-
-Realtime/chat smoke: `docs/realtime-smoke-test.md`
-
-## Rate limit & abuse koruması
-
-Backend tarafında düşük riskli in-memory korumalar aktiftir (tek instance için uygundur, multi-instance için Redis benzeri ortak store önerilir).
-
-- Auth (`/api/auth/*`): sıkı limit + failed auth backoff (IP + email anahtarı)
-- Kritik (`POST /api/likes/*`, `POST /api/conversations/*/read`, `POST /api/recommendations/**`): orta limit
-- Genel (`/api/**`): makul default limit
-- Realtime (`/app/chat.send`, `/app/chat.typing`, `/app/chat.delivered`, `/app/chat.sync`): websocket inbound limit + mesaj flood koruması
-
-Limit aşımında API `429` döner:
-
-```json
-{
-  "status": 429,
-  "error": "TOO_MANY_REQUESTS",
-  "message": "Rate limit exceeded. Please try again later.",
-  "retryAfterSeconds": 12
-}
+### Backend
+```bash
+cd backend
+./mvnw test
+./mvnw -DskipTests package
 ```
 
-Header: `Retry-After`.
+---
 
-## Operasyon dokümanları
+## Environment Variables
 
-- Environment/config: `docs/environment.md`
-- Runbook: `docs/runbook.md`
-- E2E runbook: `docs/e2e-runbook.md`
-- DB migration/disaster runbook: `docs/db-migration-disaster-runbook.md`
-- CI/CD + Observability: `docs/ci-observability.md`
+See detailed docs in `docs/environment.md`.
 
-### DB backup/restore scriptleri (Windows)
+Important variables include:
+- `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
+- `JWT_SECRET`
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`
+- `RATE_LIMIT_*`
+- `FCM_SERVER_KEY`, `APNS_*`
 
-- Örnek env: `scripts/db/db.env.example` dosyasını `scripts/db/db.env` olarak kopyalayın.
-- Backup:
-  - `powershell -File .\scripts\db\backup-postgres.ps1 -EnvFile .\scripts\db\db.env`
-- Restore (dry-run):
-  - `powershell -File .\scripts\db\restore-postgres.ps1 -EnvFile .\scripts\db\db.env -BackupFile <dump> -DryRun`
+> Never commit real secrets. Use environment variables in local/dev/prod setups.
 
-## Yeni kapsam (6/7/8/9)
+---
 
-### Push env/config
-- `PUSH_ENABLED`
-- `FCM_SERVER_KEY`
-- `FCM_URL`
-- `APNS_KEY_ID`
-- `APNS_TEAM_ID`
-- `APNS_BUNDLE_ID`
-- `APNS_PRIVATE_KEY`
-- `APNS_SANDBOX`
+## Key Documentation
 
-Push endpointleri:
-- `POST /api/push/devices`
-- `PUT /api/push/preferences`
+- `docs/environment.md`
+- `docs/runbook.md`
+- `docs/e2e-runbook.md`
+- `docs/db-migration-disaster-runbook.md`
+- `docs/ci-observability.md`
 
-### Moderasyon endpointleri
-- `POST /api/moderation/reports`
-- `GET /api/moderation/reports`
-- `PUT /api/moderation/reports/{reportId}`
-- `POST /api/moderation/actions`
+---
+
+## Open Source Notes
+
+- This repo excludes private credentials by default.
+- Keep configuration secrets in your local environment only.
+- Contributions should pass all frontend/backend validation commands.
+
+---
+
+## License
+
+Add your preferred license file before public release (for example: MIT, Apache-2.0, or GPL).

@@ -16,7 +16,7 @@ import java.util.Map;
 public class JwtService {
     private final Key key;
 
-    public JwtService(@Value("${JWT_SECRET:bloom_dating_app_gercek_ve_cok_guclu_gizli_anahtar_2026}") String secretKey) {
+    public JwtService(@Value("${JWT_SECRET:change-this-dev-secret-to-at-least-32-bytes}") String secretKey) {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
