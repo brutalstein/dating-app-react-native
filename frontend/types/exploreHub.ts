@@ -54,6 +54,9 @@ export interface ActivityItem {
   referenceId?: string;
   explainability?: ExplainabilityItem[];
   isSystem?: boolean;
+  source?: 'activity_feed' | 'system_notification';
+  actionKind?: 'open_profile' | 'info' | 'recommendation';
+  actionLabel?: string;
 }
 
 export interface ExploreHubPayload {

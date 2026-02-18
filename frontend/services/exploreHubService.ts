@@ -135,6 +135,9 @@ function mapPayload(data: any): ExploreHubPayload {
 
         const isSystem = mappedType === 'system' || !a.actorId;
 
+        const actionKind = mappedType === 'recommendation' ? 'recommendation' : isSystem ? 'info' : 'open_profile';
+        const actionLabel = actionKind === 'open_profile' ? 'Profili Gör' : actionKind === 'info' ? 'Bilgi' : undefined;
+
         return {
           id: a.id,
           type: mappedType,
@@ -146,6 +149,9 @@ function mapPayload(data: any): ExploreHubPayload {
           explainability: a.explainability ?? [],
           actor: { id: a.actorId ?? 'system', fullName: a.actorName ?? 'Bloom Sistem', avatarUrl: a.actorAvatar ?? undefined },
           isSystem,
+          source: isSystem ? 'system_notification' : 'activity_feed',
+          actionKind,
+          actionLabel,
         };
       }),
       ...(__DEV__
@@ -156,6 +162,9 @@ function mapPayload(data: any): ExploreHubPayload {
             createdAt: new Date().toISOString(),
             actor: { id: 'system', fullName: 'Bloom Sistem' },
             isSystem: true,
+            source: 'system_notification' as const,
+            actionKind: 'info' as const,
+            actionLabel: 'Bilgi',
           }]
         : []),
     ],

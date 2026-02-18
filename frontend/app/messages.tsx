@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useExploreHub } from '@/hooks/useExploreHub';
@@ -74,11 +74,14 @@ export default function MessagesScreen() {
         <TouchableOpacity
           style={hubStyles.card}
           onPress={() => {
-            if (isSystem) return;
+            if (isSystem) {
+              Alert.alert('Sistem bildirimi', item.lastMessage || 'Detay bilgisi bulunamadı.');
+              return;
+            }
             markThreadAsRead(item.id);
             router.push(`/chat/${item.id}` as any);
           }}
-          activeOpacity={isSystem ? 1 : 0.9}>
+          activeOpacity={0.9}>
           <View>
             <Avatar name={displayName} uri={item.user.avatarUrl} />
             {item.isOnline && (

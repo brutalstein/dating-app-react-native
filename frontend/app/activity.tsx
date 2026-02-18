@@ -33,7 +33,10 @@ export default function ActivityScreen() {
 
   const handleRecommendationAction = useCallback(
     async (item: ActivityItem, action: 'LIKE' | 'PASS') => {
-      if (!item.referenceId) return;
+      if (!item.referenceId) {
+        Alert.alert('İşlem alınamadı', 'Bu öneri için işlem bilgisi eksik.');
+        return;
+      }
       try {
         await proactiveService.actionRecommendation(item.referenceId, action);
         await refresh();
@@ -42,6 +45,19 @@ export default function ActivityScreen() {
       }
     },
     [refresh]
+  );
+
+  const handlePrimaryAction = useCallback(
+    (item: ActivityItem) => {
+      if (item.actionKind === 'open_profile' && item.actor.id && item.actor.id !== 'system') {
+        router.push(`/profile/${item.actor.id}` as any);
+        return;
+      }
+
+      const detail = [item.summary, item.reason].filter(Boolean).join('\n\n');
+      Alert.alert('Bilgi', detail || 'Bu öğe için ek detay bulunamadı.');
+    },
+    [router]
   );
 
   const renderItem = useCallback(
@@ -72,22 +88,38 @@ export default function ActivityScreen() {
             </View>
           ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-            {item.type === 'recommendation' && item.referenceId ? (
+            {item.type === 'recommendation' ? (
               <>
                 <TouchableOpacity
+                  disabled={!item.referenceId}
                   onPress={() => handleRecommendationAction(item, 'LIKE')}
-                  style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(34,197,94,0.2)' }}>
+                  style={{
+                    borderRadius: 999,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    backgroundColor: item.referenceId ? 'rgba(34,197,94,0.2)' : 'rgba(34,197,94,0.08)',
+                    opacity: item.referenceId ? 1 : 0.6,
+                  }}>
                   <Text style={{ color: '#86efac', fontWeight: '700', fontSize: 11 }}>Beğen</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                  disabled={!item.referenceId}
                   onPress={() => handleRecommendationAction(item, 'PASS')}
-                  style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(255,255,255,0.12)' }}>
+                  style={{
+                    borderRadius: 999,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    backgroundColor: item.referenceId ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+                    opacity: item.referenceId ? 1 : 0.6,
+                  }}>
                   <Text style={{ color: '#e5e7eb', fontWeight: '700', fontSize: 11 }}>Geç</Text>
                 </TouchableOpacity>
               </>
             ) : (
-              <TouchableOpacity style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(255,90,95,0.2)' }}>
-                <Text style={{ color: '#fda4af', fontWeight: '700', fontSize: 11 }}>Yanıt Ver</Text>
+              <TouchableOpacity
+                onPress={() => handlePrimaryAction(item)}
+                style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(255,90,95,0.2)' }}>
+                <Text style={{ color: '#fda4af', fontWeight: '700', fontSize: 11 }}>{item.actionLabel || 'Detayı Gör'}</Text>
               </TouchableOpacity>
             )}
             <Text style={hubStyles.subtitle}>{formatRelativeTime(item.createdAt)}</Text>
@@ -102,7 +134,7 @@ export default function ActivityScreen() {
         </View>
       </View>
     ),
-    [handleRecommendationAction]
+    [handlePrimaryAction, handleRecommendationAction]
   );
 
   return (
