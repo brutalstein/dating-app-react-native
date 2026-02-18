@@ -30,6 +30,7 @@ public class SocialService {
     private final SafetyService safetyService;
     private final PremiumService premiumService;
     private final ObjectMapper objectMapper;
+    private final ThreadLocal<Boolean> teaserSeedInProgress = ThreadLocal.withInitial(() -> false);
 
     @Transactional
     public LikeResponse sendLike(User sender, UUID targetUserId) {
@@ -346,41 +347,50 @@ public class SocialService {
     }
 
     private void seedNpcTeaserConversationIfNeeded(User user) {
+        if (Boolean.TRUE.equals(teaserSeedInProgress.get())) {
+            return;
+        }
+
         if (Boolean.TRUE.equals(user.getNpc()) || !Boolean.TRUE.equals(user.getOnboardingCompleted())) {
             return;
         }
 
-        boolean exists = conversationRepository.findAll().stream().anyMatch(c ->
-                Boolean.TRUE.equals(c.getTeaserConversation())
-                        && c.getTeaserOwnerUser() != null
-                        && c.getTeaserOwnerUser().getId().equals(user.getId()));
-        if (exists) {
-            return;
+        teaserSeedInProgress.set(true);
+        try {
+            boolean exists = conversationRepository.findAll().stream().anyMatch(c ->
+                    Boolean.TRUE.equals(c.getTeaserConversation())
+                            && c.getTeaserOwnerUser() != null
+                            && c.getTeaserOwnerUser().getId().equals(user.getId()));
+            if (exists) {
+                return;
+            }
+
+            User npc = userRepository.findByNpcTrue().stream().findFirst().orElse(null);
+            if (npc == null) {
+                return;
+            }
+
+            Conversation conversation = new Conversation();
+            conversation.setTeaserConversation(true);
+            conversation.setTeaserProfileLocked(true);
+            conversation.setTeaserCtaText("Profili görmek için premium al");
+            conversation.setTeaserOwnerUser(user);
+            conversation.setTeaserNpcUser(npc);
+            conversation.setUpdatedAt(LocalDateTime.now());
+            conversation = conversationRepository.save(conversation);
+
+            MessageEntity first = new MessageEntity();
+            first.setConversation(conversation);
+            first.setSender(npc);
+            first.setContent("Merhaba yenisin galiba… Ben Luna ✨ Profilimi görmek istersen premium ile kilidi açabilirsin.");
+            messageRepository.save(first);
+
+            createNotification(user, NotificationType.MESSAGE, "Luna'dan teaser mesaj", "Merhaba yenisin galiba… Profili görmek için premium al.");
+            createActivity(user, npc, ActivityType.MESSAGE_RECEIVED, "Luna sana teaser bir mesaj gönderdi.");
+            // Avoid recursive explore-hub rebuild while listConversations/buildExploreHub is in progress.
+        } finally {
+            teaserSeedInProgress.remove();
         }
-
-        User npc = userRepository.findByNpcTrue().stream().findFirst().orElse(null);
-        if (npc == null) {
-            return;
-        }
-
-        Conversation conversation = new Conversation();
-        conversation.setTeaserConversation(true);
-        conversation.setTeaserProfileLocked(true);
-        conversation.setTeaserCtaText("Profili görmek için premium al");
-        conversation.setTeaserOwnerUser(user);
-        conversation.setTeaserNpcUser(npc);
-        conversation.setUpdatedAt(LocalDateTime.now());
-        conversation = conversationRepository.save(conversation);
-
-        MessageEntity first = new MessageEntity();
-        first.setConversation(conversation);
-        first.setSender(npc);
-        first.setContent("Merhaba yenisin galiba… Ben Luna ✨ Profilimi görmek istersen premium ile kilidi açabilirsin.");
-        messageRepository.save(first);
-
-        createNotification(user, NotificationType.MESSAGE, "Luna'dan teaser mesaj", "Merhaba yenisin galiba… Profili görmek için premium al.");
-        createActivity(user, npc, ActivityType.MESSAGE_RECEIVED, "Luna sana teaser bir mesaj gönderdi.");
-        // Avoid recursive explore-hub rebuild while listConversations/buildExploreHub is in progress.
     }
 
     private MessageResponse toMessageResponse(MessageEntity message) {
