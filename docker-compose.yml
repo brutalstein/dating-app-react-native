@@ -37,11 +37,18 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/bloomDb
       DB_USERNAME: postgres
       DB_PASSWORD: ${DB_PASSWORD:-SecurePassword123!}
-      JWT_SECRET: ${JWT_SECRET:-ChangeThisToASecureRandomSecretInProduction}
+      # JWT Security - MUST be set in production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required. Generate with: openssl rand -base64 64}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-3600000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      # CORS Configuration
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      # Email/SMTP
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      # Push Notifications
       PUSH_ENABLED: ${PUSH_ENABLED:-true}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
       APNS_KEY_ID: ${APNS_KEY_ID:-}
@@ -49,6 +56,7 @@ services:
       APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-}
       APNS_PRIVATE_KEY: ${APNS_PRIVATE_KEY:-}
       APNS_SANDBOX: ${APNS_SANDBOX:-false}
+      # Rate Limiting
       RATE_LIMIT_DEFAULT_LIMIT: ${RATE_LIMIT_DEFAULT_LIMIT:-120}
       RATE_LIMIT_DEFAULT_WINDOW_SECONDS: ${RATE_LIMIT_DEFAULT_WINDOW_SECONDS:-60}
       RATE_LIMIT_AUTH_LIMIT: ${RATE_LIMIT_AUTH_LIMIT:-12}
@@ -56,7 +64,7 @@ services:
     ports:
       - "8080:8080"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 3s
       retries: 3
