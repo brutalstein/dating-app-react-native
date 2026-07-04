@@ -1,15 +1,49 @@
-# Workspace-level ignores
+```
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Dependencies
 node_modules/
+venv/
+.venv/
+target/
+.gradle/
 
-# Frontend local Expo state and generated assets
-frontend/.expo/
-frontend/dist/
-frontend/web-build/
+# Build artifacts
+dist/
+build/
+*.jar
+*.war
+*.class
 
-# Backend build output
-backend/target/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+htmlcov/
+.mypy_cache/
+.pytest_cache/
 
-# DB ops local secrets/artifacts
-scripts/db/db.env
-scripts/db/backups/
-*.dump
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerenv
+```
