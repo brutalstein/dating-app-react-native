@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Eşleştiğiniz kullanıcılarla konumunuzu paylaşmak için konum erişimi gereklidir.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Eşleştiğiniz kullanıcılarla sürekli konum paylaşımı yapabilmek için arka planda konum erişimi gereklidir.",
+        "NSLocationAlwaysUsageDescription": "Eşleştiğiniz kullanıcılarla konumunuzu paylaşmak için konum erişimi gereklidir."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +24,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
